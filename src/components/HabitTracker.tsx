@@ -1,7 +1,11 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useHabitData } from "@/hooks/useHabitData";
 
@@ -79,6 +83,29 @@ export default function HabitTracker() {
   const [newHabitName, setNewHabitName] = useState("");
   const addInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Mobile swipe state
+  const [mobileWeekIdx, setMobileWeekIdx] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const [showSignOutDialog, setShowSignOutDialog] = useState(false);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+      if (dx < 0) setMobileWeekIdx(i => Math.min(i + 1, weekRanges.length - 1));
+      else setMobileWeekIdx(i => Math.max(i - 1, 0));
+    }
+    touchStartX.current = null;
+    touchStartY.current = null;
+  }, [weekRanges.length]);
+
   const startAdd = () => { setShowAddRow(true); setTimeout(() => addInputRef.current?.focus(), 50); };
   const cancelAdd = () => { setShowAddRow(false); setNewHabitName(""); };
   const saveNewHabit = async () => {
@@ -128,54 +155,234 @@ export default function HabitTracker() {
     );
   }
 
+  const activeWeek = weekRanges[mobileWeekIdx];
+
   return (
-    <div className="min-h-screen bg-background p-2 sm:p-4 overflow-x-auto">
+    <div className="min-h-screen bg-background p-2 sm:p-4">
       {/* Header */}
-      <div className="bg-tracker-header text-tracker-header-foreground flex items-center justify-between py-2 px-4 rounded-t font-bold text-sm sm:text-base">
-        <span>📅 {monthName} {YEAR} — Habit Tracker</span>
-        <div className="flex items-center gap-2">
-          <button onClick={startAdd} className="text-xxs sm:text-xs bg-primary text-primary-foreground px-2 py-1 rounded hover:opacity-90">
-            + Add Habit
-          </button>
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[160px] h-7 text-xs bg-primary-foreground/20 border-primary-foreground/30 text-primary-foreground">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {user && (
-            <div className="flex items-center gap-2 ml-2">
-              {user.user_metadata?.avatar_url && (
-                <img src={user.user_metadata.avatar_url} alt="avatar" className="w-6 h-6 rounded-full" />
-              )}
-              <span className="text-xxs hidden sm:inline opacity-80">{user.user_metadata?.name || user.email}</span>
-              <button onClick={signOut} className="text-xxs bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground px-2 py-1 rounded">
-                Sign out
-              </button>
-            </div>
-          )}
+      <div className="bg-tracker-header text-tracker-header-foreground rounded-t font-bold">
+        {/* Mobile header */}
+        <div className="flex sm:hidden flex-col gap-1.5 py-2 px-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm leading-tight">📅 {monthName} {YEAR}</span>
+            {user && (
+              <div className="flex items-center gap-1.5">
+                {user.user_metadata?.avatar_url
+                  ? <img src={user.user_metadata.avatar_url} alt="avatar" className="w-6 h-6 rounded-full" />
+                  : <div className="w-6 h-6 rounded-full bg-primary-foreground/30 flex items-center justify-center text-xxs font-bold">
+                      {(user.user_metadata?.name || user.email || "U")[0].toUpperCase()}
+                    </div>
+                }
+                <button onClick={() => setShowSignOutDialog(true)} className="text-xxs bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground px-2 py-1 rounded">
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={selectedMonth} onValueChange={v => { setSelectedMonth(v); setMobileWeekIdx(0); }}>
+              <SelectTrigger className="flex-1 h-7 text-xs bg-primary-foreground/20 border-primary-foreground/30 text-primary-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        {/* Desktop header — 3-col: left=selector, center=title, right=user */}
+        <div className="hidden sm:grid grid-cols-3 items-center py-3 px-5" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+          <div className="flex items-center">
+            <Select value={selectedMonth} onValueChange={v => { setSelectedMonth(v); setMobileWeekIdx(0); }}>
+              <SelectTrigger className="w-[150px] h-7 text-xs bg-primary-foreground/20 border-primary-foreground/30 text-primary-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-center">
+            <span className="font-bold tracking-tight text-sm text-tracker-header-foreground whitespace-nowrap">{monthName} {YEAR} — Habit Tracker</span>
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            {user && (
+              <>
+                {user.user_metadata?.avatar_url && (
+                  <img src={user.user_metadata.avatar_url} alt="avatar" className="w-7 h-7 rounded-full" />
+                )}
+                <span className="text-xs opacity-80 text-tracker-header-foreground truncate max-w-[130px]">{user.user_metadata?.name || user.email}</span>
+                <button onClick={() => setShowSignOutDialog(true)} className="text-xs bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground px-3 py-1 rounded font-medium whitespace-nowrap">
+                  Sign out
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="overflow-x-auto border border-border rounded-b">
-        <table className="w-full border-collapse text-xxs sm:text-xs tabular-nums min-w-[900px]">
+      {/* Mobile: swipeable single-week view */}
+      <div className="sm:hidden border border-border rounded-b overflow-hidden"
+        onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        {/* Week navigator */}
+        <div className="flex items-center justify-between px-3 py-1.5"
+          style={{ backgroundColor: WEEK_HSL_COLORS[mobileWeekIdx % WEEK_HSL_COLORS.length] }}>
+          <button
+            onClick={() => setMobileWeekIdx(i => Math.max(i - 1, 0))}
+            disabled={mobileWeekIdx === 0}
+            className="text-white text-lg px-2 disabled:opacity-30 select-none">‹</button>
+          <span className="text-white font-semibold text-sm">
+            {activeWeek.label} &nbsp;·&nbsp; {activeWeek.dateRange}
+          </span>
+          <button
+            onClick={() => setMobileWeekIdx(i => Math.min(i + 1, weekRanges.length - 1))}
+            disabled={mobileWeekIdx === weekRanges.length - 1}
+            className="text-white text-lg px-2 disabled:opacity-30 select-none">›</button>
+        </div>
+        {/* Dot indicators */}
+        <div className="flex justify-center gap-1.5 py-1.5 bg-card">
+          {weekRanges.map((_, wi) => (
+            <button key={wi} onClick={() => setMobileWeekIdx(wi)}
+              className="w-2 h-2 rounded-full transition-all"
+              style={{ backgroundColor: wi === mobileWeekIdx ? WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length] : '#d1d5db' }} />
+          ))}
+        </div>
+        {/* Mobile week table */}
+        <div>
+          <table className="w-full border-collapse tabular-nums table-fixed" style={{ fontSize: '11px' }}>
+            <colgroup>
+              <col style={{ width: '30%' }} />
+              {activeWeek.days.map(d => <col key={d} style={{ width: `${70 / activeWeek.days.length}%` }} />)}
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="border border-border p-1 text-left font-semibold text-foreground bg-card">Habits</th>
+                {activeWeek.days.map(d => (
+                  <th key={d} className="border border-border p-0.5 text-center font-medium"
+                    style={{ backgroundColor: WEEK_HSL_BG_LIGHT[mobileWeekIdx % WEEK_HSL_BG_LIGHT.length], color: '#1f2937' }}>
+                    <div className="font-bold leading-tight">{d}</div>
+                    <div className="text-[9px] text-gray-500 font-normal leading-tight">{dayNames[d - 1]}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {habits.map((habit, hi) => (
+                <tr key={habit.id} className={hi % 2 === 0 ? "bg-card" : "bg-secondary/30"}>
+                  <td
+                    className="border border-border p-1 font-medium text-foreground overflow-hidden"
+                    style={{ backgroundColor: hi % 2 === 0 ? 'hsl(var(--card))' : 'hsl(var(--secondary) / 0.3)' }}
+                    onDoubleClick={() => startEditing(habit.id, habit.name)}
+                  >
+                    {editingId === habit.id ? (
+                      <input
+                        className="bg-transparent border-b border-primary outline-none w-full text-foreground"
+                        style={{ fontSize: '11px' }}
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value)}
+                        onBlur={saveEdit}
+                        onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingId(null); }}
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="block truncate" style={{ fontSize: '11px' }} title="Double-click to edit">{hi + 1}. {habit.name}</span>
+                    )}
+                  </td>
+                  {activeWeek.days.map(d => {
+                    const checked = logs[habit.id]?.[d] || false;
+                    return (
+                      <td key={d} className="border border-border p-0 text-center"
+                        style={{ backgroundColor: WEEK_HSL_BG_LIGHT[mobileWeekIdx % WEEK_HSL_BG_LIGHT.length] }}>
+                        <button onClick={() => toggle(habit.id, d)}
+                          className="w-full h-full flex items-center justify-center py-1.5"
+                          aria-label={`${habit.name} day ${d}`}>
+                          <span className="inline-flex w-4 h-4 rounded-sm items-center justify-center transition-all duration-150"
+                            style={checked
+                              ? { backgroundColor: WEEK_HSL_COLORS[mobileWeekIdx % WEEK_HSL_COLORS.length], border: '1px solid rgba(0,0,0,0.12)' }
+                              : { backgroundColor: WEEK_HSL_BG_LIGHT[mobileWeekIdx % WEEK_HSL_BG_LIGHT.length], border: '1px solid rgba(15,23,42,0.36)' }
+                            }>
+                            {checked && (
+                              <svg viewBox="0 0 12 12" className="w-3 h-3 text-white">
+                                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" fill="none" />
+                              </svg>
+                            )}
+                          </span>
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+
+              {showAddRow ? (
+                <tr className="bg-card">
+                  <td className="border border-border p-1 font-medium text-foreground bg-card">
+                    <div className="flex items-center gap-1">
+                      <input ref={addInputRef} value={newHabitName}
+                        onChange={e => setNewHabitName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveNewHabit(); if (e.key === 'Escape') cancelAdd(); }}
+                        placeholder="New habit name"
+                        className="flex-1 bg-transparent border-b border-primary outline-none text-xs" />
+                      <button onClick={saveNewHabit} className="text-xxs px-1.5 py-0.5 bg-primary text-primary-foreground rounded">✓</button>
+                      <button onClick={cancelAdd} className="text-xxs px-1.5 py-0.5 bg-muted text-muted-foreground rounded">✕</button>
+                    </div>
+                  </td>
+                  {activeWeek.days.map(d => (
+                    <td key={d} className="border border-border p-0 text-center bg-card">&nbsp;</td>
+                  ))}
+                </tr>
+              ) : (
+                <tr className="bg-card">
+                  <td colSpan={activeWeek.days.length + 1} className="border border-border p-0">
+                    <button onClick={startAdd}
+                      className="w-full text-left px-3 py-1.5 text-xs text-primary hover:bg-primary/5 transition-colors flex items-center gap-1">
+                      <span className="font-bold text-sm leading-none">+</span> Add Habit
+                    </button>
+                  </td>
+                </tr>
+              )}
+
+              <tr className="bg-secondary/50">
+                <td className="border border-border p-1 font-semibold text-muted-foreground text-xxs uppercase">Done</td>
+                {activeWeek.days.map(d => (
+                  <td key={d} className="border border-border p-0.5 text-center font-medium text-foreground text-xs">{stats.dailyCompleted[d]}</td>
+                ))}
+              </tr>
+              <tr className="bg-secondary/50">
+                <td className="border border-border p-1 font-semibold text-muted-foreground text-xxs uppercase">Left</td>
+                {activeWeek.days.map(d => (
+                  <td key={d} className="border border-border p-0.5 text-center font-medium text-foreground text-xs">{stats.dailyIncomplete[d]}</td>
+                ))}
+              </tr>
+              <tr className="bg-card">
+                <td className="border border-border p-1 font-semibold text-foreground text-xs">Week Total</td>
+                <td colSpan={activeWeek.days.length} className="border border-border p-1 text-center font-bold text-foreground text-xs">
+                  {stats.weeklyCompleted[mobileWeekIdx]} / {stats.weeklyTotal[mobileWeekIdx]}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Desktop: full grid */}
+      <div className="hidden sm:block border border-border rounded-b">
+        <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-xs tabular-nums min-w-[900px]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 bg-card border border-border p-1 min-w-[120px]"></th>
+              <th className="sticky left-0 z-10 bg-card border border-border p-1 min-w-[140px]"></th>
               {weekRanges.map((w, wi) => (
-                <th key={w.label} colSpan={w.days.length} className="border border-border p-1 text-center font-semibold"
+                <th key={w.label} colSpan={w.days.length} className="border border-border p-1.5 text-center font-semibold text-xs uppercase tracking-wider"
                   style={{ backgroundColor: WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length], color: '#fff' }}>
                   {w.label}
                 </th>
               ))}
-              <th className="bg-card border border-border p-1 text-center font-semibold text-foreground" rowSpan={2}>Goal</th>
-              <th className="bg-card border border-border p-1 text-center font-semibold text-foreground" rowSpan={2}>Progress</th>
+              <th className="bg-card border border-border p-1.5 text-center font-semibold text-foreground text-xs uppercase tracking-wide" rowSpan={2}>Goal</th>
+              <th className="bg-card border border-border p-1.5 text-center font-semibold text-foreground text-xs uppercase tracking-wide" rowSpan={2}>Progress</th>
             </tr>
             <tr>
-              <th className="sticky left-0 z-10 bg-card border border-border p-1 text-left font-semibold text-foreground">Habits</th>
+              <th className="sticky left-0 z-10 bg-card border border-border p-1.5 text-left font-semibold text-foreground text-xs uppercase tracking-wide">Habits</th>
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
                 const weekIdx = weekRanges.findIndex(w => w.days.includes(d));
                 return (
@@ -187,7 +394,7 @@ export default function HabitTracker() {
               })}
             </tr>
             <tr>
-              <th className="sticky left-0 z-10 bg-card border border-border p-1 text-left text-muted-foreground font-normal">Days</th>
+              <th className="sticky left-0 z-10 bg-card border border-border p-1.5 text-left text-muted-foreground font-medium text-xs">Days</th>
               {dayNames.map((dn, i) => {
                 const weekIdx = weekRanges.findIndex(w => w.days.includes(i + 1));
                 return (
@@ -205,7 +412,7 @@ export default function HabitTracker() {
             {habits.map((habit, hi) => (
               <tr key={habit.id} className={hi % 2 === 0 ? "bg-card" : "bg-secondary/30"}>
                 <td
-                  className="sticky left-0 z-10 border border-border p-1 font-medium text-foreground whitespace-nowrap cursor-pointer"
+                  className="sticky left-0 z-10 border border-border p-1.5 font-medium text-foreground whitespace-nowrap cursor-pointer text-xs"
                   style={{ backgroundColor: hi % 2 === 0 ? 'hsl(var(--card))' : 'hsl(var(--secondary) / 0.3)' }}
                   onDoubleClick={() => startEditing(habit.id, habit.name)}
                 >
@@ -263,10 +470,9 @@ export default function HabitTracker() {
               </tr>
             ))}
 
-            {showAddRow && (
-              <tr className={habits.length % 2 === 0 ? "bg-card" : "bg-secondary/30"}>
-                <td className="sticky left-0 z-10 border border-border p-1 font-medium text-foreground whitespace-nowrap"
-                  style={{ backgroundColor: habits.length % 2 === 0 ? 'hsl(var(--card))' : 'hsl(var(--secondary) / 0.3)' }}>
+            {showAddRow ? (
+              <tr className="bg-card">
+                <td className="sticky left-0 z-10 bg-card border border-border p-1 font-medium text-foreground whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <input ref={addInputRef} value={newHabitName}
                       onChange={e => setNewHabitName(e.target.value)}
@@ -278,17 +484,26 @@ export default function HabitTracker() {
                   </div>
                 </td>
                 {Array.from({ length: daysInMonth }, (_, d) => (
-                  <td key={d} className="border border-border p-0 text-center">&nbsp;</td>
+                  <td key={d} className="border border-border p-0 text-center bg-card">&nbsp;</td>
                 ))}
-                <td className="border border-border p-1 text-center">{daysInMonth}</td>
-                <td className="border border-border p-1 text-center">0</td>
+                <td className="border border-border p-1 text-center bg-card">{daysInMonth}</td>
+                <td className="border border-border p-1 text-center bg-card">0</td>
+              </tr>
+            ) : (
+              <tr className="bg-card">
+                <td colSpan={daysInMonth + 3} className="sticky left-0 border border-border p-0">
+                  <button onClick={startAdd}
+                    className="w-full text-left px-3 py-1.5 text-xs text-primary hover:bg-primary/5 transition-colors flex items-center gap-1">
+                    <span className="font-bold text-sm leading-none">+</span> Add Habit
+                  </button>
+                </td>
               </tr>
             )}
 
             <tr><td colSpan={daysInMonth + 3} className="border border-border p-1 bg-card h-2"></td></tr>
 
             <tr className="bg-secondary/50">
-              <td className="sticky left-0 z-10 bg-secondary/50 border border-border p-1 font-semibold text-foreground">{habits.length + 2}. Habits Completed</td>
+              <td className="sticky left-0 z-10 bg-secondary/50 border border-border p-1.5 font-semibold text-foreground text-xs tracking-wide uppercase text-muted-foreground">Completed</td>
               {Array.from({ length: daysInMonth }, (_, i) => (
                 <td key={i} className="border border-border p-0.5 text-center font-medium text-foreground">{stats.dailyCompleted[i + 1]}</td>
               ))}
@@ -296,7 +511,7 @@ export default function HabitTracker() {
               <td className="border border-border p-1 text-center font-bold text-foreground">{stats.totalCompleted}</td>
             </tr>
             <tr className="bg-secondary/50">
-              <td className="sticky left-0 z-10 bg-secondary/50 border border-border p-1 font-semibold text-foreground">{habits.length + 3}. Habits Incomplete</td>
+              <td className="sticky left-0 z-10 bg-secondary/50 border border-border p-1.5 font-semibold text-foreground text-xs tracking-wide uppercase text-muted-foreground">Incomplete</td>
               {Array.from({ length: daysInMonth }, (_, i) => (
                 <td key={i} className="border border-border p-0.5 text-center font-medium text-foreground">{stats.dailyIncomplete[i + 1]}</td>
               ))}
@@ -326,11 +541,13 @@ export default function HabitTracker() {
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Weekly Progress */}
       <section className="mt-4">
-        <h2 className="font-bold text-sm text-foreground mb-3">📈 Progress per Week</h2>
+        <h2 className="hidden sm:block font-semibold text-xs text-foreground mb-3 tracking-tight uppercase" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>Progress per Week</h2>
+        <h2 className="sm:hidden font-bold text-sm text-foreground mb-3">📈 Progress per Week</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
           {weekRanges.map((w, wi) => {
             const completed = stats.weeklyCompleted[wi] || 0;
@@ -346,7 +563,46 @@ export default function HabitTracker() {
         </div>
       </section>
 
-      <DailyOverview stats={stats} daysInMonth={daysInMonth} habits={habits.map(h => h.name)} monthName={monthName} />
+      {/* Desktop week navigator — above Daily Progress */}
+      <div className="hidden sm:flex items-center justify-between mt-5 px-4 py-2 rounded-t"
+        style={{ backgroundColor: WEEK_HSL_COLORS[mobileWeekIdx % WEEK_HSL_COLORS.length], fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <button
+          onClick={() => setMobileWeekIdx(i => Math.max(i - 1, 0))}
+          disabled={mobileWeekIdx === 0}
+          className="text-white text-xl px-3 py-0.5 rounded hover:bg-white/10 disabled:opacity-30 select-none">‹</button>
+        <div className="flex items-center gap-4">
+          <span className="text-white font-semibold text-sm tracking-tight">
+            {activeWeek.label} &nbsp;·&nbsp; {activeWeek.dateRange}
+          </span>
+          <div className="flex gap-1.5">
+            {weekRanges.map((_, wi) => (
+              <button key={wi} onClick={() => setMobileWeekIdx(wi)}
+                className="w-2 h-2 rounded-full transition-all"
+                style={{ backgroundColor: wi === mobileWeekIdx ? '#fff' : 'rgba(255,255,255,0.35)' }} />
+            ))}
+          </div>
+        </div>
+        <button
+          onClick={() => setMobileWeekIdx(i => Math.min(i + 1, weekRanges.length - 1))}
+          disabled={mobileWeekIdx === weekRanges.length - 1}
+          className="text-white text-xl px-3 py-0.5 rounded hover:bg-white/10 disabled:opacity-30 select-none">›</button>
+      </div>
+
+      <DailyOverview stats={stats} activeDays={activeWeek.days} activeWeekIdx={mobileWeekIdx} activeWeekLabel={activeWeek.label} habits={habits.map(h => h.name)} monthName={monthName} />
+
+      {/* Sign out confirmation */}
+      <AlertDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign out?</AlertDialogTitle>
+            <AlertDialogDescription>You'll be returned to the login screen.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={signOut}>Sign out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -378,34 +634,34 @@ function WeeklyDonut({ percentage, color, label }: { percentage: number; color: 
   );
 }
 
-function DailyOverview({ stats, daysInMonth, habits, monthName }: {
+function DailyOverview({ stats, activeDays, activeWeekIdx, activeWeekLabel, habits, monthName }: {
   stats: { dailyCompleted: Record<number, number>; dailyIncomplete: Record<number, number>; totalCompleted: number; totalPossible: number };
-  daysInMonth: number; habits: string[]; monthName: string;
+  activeDays: number[]; activeWeekIdx: number; activeWeekLabel: string; habits: string[]; monthName: string;
 }) {
   const maxPerDay = habits.length;
+  const weekIdx = activeWeekIdx % 5;
   return (
-    <div className="mt-4">
-      <h2 className="font-bold text-sm text-foreground mb-3">📊 Daily Progress Overview — {monthName} {YEAR}</h2>
-      <div className="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-10 gap-1.5">
-        {Array.from({ length: daysInMonth }, (_, i) => {
-          const day = i + 1;
+    <div className="mt-0">
+      <h2 className="hidden sm:block font-semibold text-xs text-foreground mb-3 mt-4 tracking-tight uppercase" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>Daily Progress — {activeWeekLabel} · {monthName} {YEAR}</h2>
+      <h2 className="sm:hidden font-bold text-sm text-foreground mb-3 mt-4 truncate">📊 {activeWeekLabel} · {monthName} {YEAR}</h2>
+      <div className="grid grid-cols-7 gap-1.5" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+        {activeDays.map(day => {
           const completed = stats.dailyCompleted[day];
           const pct = maxPerDay > 0 ? (completed / maxPerDay) * 100 : 0;
-          const weekIdx = Math.floor(i / 7) % 5;
           return (
             <div key={day} className="border border-border rounded bg-card overflow-hidden shadow-sm">
-              <div className={`${WEEK_COLORS_BG[weekIdx]} text-primary-foreground text-center py-0.5 text-xxs font-bold`}>Day {day}</div>
-              <div className="p-1.5 space-y-1">
-                <div className="text-center text-lg font-bold text-foreground">{completed}</div>
-                <div className="text-center text-xxs text-muted-foreground">of {maxPerDay}</div>
+              <div className={`${WEEK_COLORS_BG[weekIdx]} text-primary-foreground text-center py-1 text-[10px] font-semibold whitespace-nowrap leading-tight`}>Day {day}</div>
+              <div className="p-1 space-y-0.5">
+                <div className="text-center text-base font-bold text-foreground leading-tight">{completed}</div>
+                <div className="text-center text-[10px] text-muted-foreground">of {maxPerDay}</div>
                 <MiniBar percentage={pct} color={WEEK_HSL_COLORS[weekIdx]} />
-                <div className="text-center text-xxs font-medium text-foreground">{Math.round(pct)}%</div>
+                <div className="text-center text-[10px] font-semibold text-foreground">{Math.round(pct)}%</div>
               </div>
             </div>
           );
         })}
       </div>
-      <div className="mt-3 text-center text-sm font-semibold text-foreground">
+      <div className="mt-3 text-center text-sm font-semibold text-foreground" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
         Monthly Total: {stats.totalCompleted} / {stats.totalPossible} ({stats.totalPossible > 0 ? Math.round((stats.totalCompleted / stats.totalPossible) * 100) : 0}%)
       </div>
     </div>
