@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import {
   Select,
   SelectContent,
@@ -8,14 +8,14 @@ import {
 } from "@/components/ui/select";
 
 const DEFAULT_HABITS = [
-  "Morning Meditation",
-  "Exercise 30 min",
+  "Wake up at 05:00",
+  "Gym",
+  "No porn",
   "Read 20 Pages",
-  "Drink 8 Glasses Water",
-  "No Social Media",
-  "Journal Writing",
-  "Healthy Breakfast",
-  "Walk 10K Steps",
+  "Goal Journaling",
+  "No Alcohol",
+  "Eat health",
+  "Cold shower",
   "Sleep by 10 PM",
   "Learn New Skill",
 ];
@@ -86,6 +86,17 @@ const WEEK_HSL_COLORS = [
   "hsl(300, 64%, 49%)",
 ];
 
+// Light background tints for week panels and unchecked boxes
+const WEEK_HSL_BG_LIGHT = [
+  // a bit darker to increase contrast (user requested slightly stronger tint)
+  "hsl(221, 83%, 86%)",
+  "hsl(271, 81%, 86%)",
+  "hsl(0, 84%, 87%)",
+  "hsl(45, 93%, 87%)",
+  "hsl(142, 71%, 87%)",
+  "hsl(300, 64%, 87%)",
+];
+
 type HabitData = Record<string, Record<number, boolean>>;
 
 export default function HabitTracker() {
@@ -107,6 +118,11 @@ export default function HabitTracker() {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
 
+  // Add-habit UI state
+  const [showAddRow, setShowAddRow] = useState(false);
+  const [newHabitName, setNewHabitName] = useState("");
+  const addInputRef = useRef<HTMLInputElement | null>(null);
+
   const storageKey = `habit-tracker-data-${YEAR}-${selectedMonth}`;
   const [data, setData] = useState<HabitData>(() => {
     const saved = localStorage.getItem(storageKey);
@@ -115,6 +131,36 @@ export default function HabitTracker() {
     habits.forEach(h => { init[h] = {}; });
     return init;
   });
+
+  // Start showing the add-new-habit row and focus input
+  const startAdd = () => {
+    setShowAddRow(true);
+    setTimeout(() => addInputRef.current?.focus(), 50);
+  };
+
+  const cancelAdd = () => {
+    setShowAddRow(false);
+    setNewHabitName("");
+  };
+
+  const saveNewHabit = () => {
+    const name = newHabitName.trim();
+    if (!name) return;
+    // append to habits
+    setHabits(prev => {
+      const nextHabits = [...prev, name];
+      localStorage.setItem("habit-tracker-habits", JSON.stringify(nextHabits));
+      return nextHabits;
+    });
+    // initialize data for the new habit
+    setData(prev => {
+      const next = { ...prev, [name]: {} };
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      return next;
+    });
+    setShowAddRow(false);
+    setNewHabitName("");
+  };
 
   // Reload data when month changes
   const handleMonthChange = (val: string) => {
@@ -200,17 +246,26 @@ export default function HabitTracker() {
       {/* Title with month selector */}
       <div className="bg-tracker-header text-tracker-header-foreground flex items-center justify-between py-2 px-4 rounded-t font-bold text-sm sm:text-base">
         <span>📅 {monthName} {YEAR} — Habit Tracker</span>
-        <Select value={selectedMonth} onValueChange={handleMonthChange}>
-          <SelectTrigger className="w-[160px] h-7 text-xs bg-primary-foreground/20 border-primary-foreground/30 text-primary-foreground">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MONTHS.map(m => (
-              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={startAdd}
+            className="text-xxs sm:text-xs bg-primary text-primary-foreground px-2 py-1 rounded hover:opacity-90"
+            aria-label="Add Habit"
+          >
+            + Add Habit
+          </button>
+          <Select value={selectedMonth} onValueChange={handleMonthChange}>
+           <SelectTrigger className="w-[160px] h-7 text-xs bg-primary-foreground/20 border-primary-foreground/30 text-primary-foreground">
+             <SelectValue />
+           </SelectTrigger>
+           <SelectContent>
+             {MONTHS.map(m => (
+               <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+             ))}
+           </SelectContent>
+         </Select>
+        </div>
+       </div>
 
       {/* Main Grid */}
       <div className="overflow-x-auto border border-border rounded-b">
@@ -222,7 +277,8 @@ export default function HabitTracker() {
                 <th
                   key={w.label}
                   colSpan={w.days.length}
-                  className={`${WEEK_COLORS_BG[wi % 5]} text-primary-foreground border border-border p-1 text-center font-semibold`}
+                  className={`border border-border p-1 text-center font-semibold`} 
+                  style={{ backgroundColor: WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length], color: '#fff' }}
                 >
                   {w.label}
                 </th>
@@ -235,22 +291,22 @@ export default function HabitTracker() {
               {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
                 const weekIdx = weekRanges.findIndex(w => w.days.includes(d));
                 return (
-                  <th key={d} className={`border border-border p-0.5 text-center font-medium ${WEEK_COLORS_BG[weekIdx % 5]} text-primary-foreground`}>
-                    <div>{d}</div>
-                  </th>
-                );
-              })}
+                  <th key={d} className={`border border-border p-0.5 text-center font-medium text-primary-foreground`} style={{ backgroundColor: WEEK_HSL_BG_LIGHT[weekIdx % WEEK_HSL_BG_LIGHT.length], color: '#1f2937' }}>
+                     <div>{d}</div>
+                   </th>
+                 );
+               })}
             </tr>
             <tr>
               <th className="sticky left-0 z-10 bg-card border border-border p-1 text-left text-muted-foreground font-normal">Days</th>
               {dayNames.map((dn, i) => {
                 const weekIdx = weekRanges.findIndex(w => w.days.includes(i + 1));
                 return (
-                  <th key={i} className={`border border-border p-0.5 text-center font-normal ${WEEK_COLORS_BG[weekIdx % 5]} text-primary-foreground`}>
+                  <th key={i} className={`border border-border p-0.5 text-center font-normal text-primary-foreground`} style={{ backgroundColor: WEEK_HSL_BG_LIGHT[weekIdx % WEEK_HSL_BG_LIGHT.length], color: '#6b7280' }}>
                     {dn}
                   </th>
-                );
-              })}
+                 );
+               })}
               <th className="bg-card border border-border p-1"></th>
               <th className="bg-card border border-border p-1"></th>
             </tr>
@@ -280,35 +336,74 @@ export default function HabitTracker() {
                   const checked = data[habit]?.[d] || false;
                   const weekIdx = weekRanges.findIndex(w => w.days.includes(d));
                   return (
-                    <td key={d} className="border border-border p-0 text-center">
+                    <td key={d} className="border border-border p-0 text-center" style={{ backgroundColor: WEEK_HSL_BG_LIGHT[weekIdx % WEEK_HSL_BG_LIGHT.length] }}>
                       <button
                         onClick={() => toggle(habit, d)}
-                        className={`w-full h-full flex items-center justify-center p-0.5 transition-colors duration-100 ${
-                          checked
-                            ? `${WEEK_COLORS_BG[weekIdx % 5]} text-primary-foreground`
-                            : 'hover:bg-muted'
-                        }`}
+                        className={`w-full h-full flex items-center justify-center p-0.5 transition-colors duration-100`}
                         aria-label={`${habit} day ${d}`}
                       >
-                        <span className={`inline-block w-3 h-3 sm:w-3.5 sm:h-3.5 border rounded-sm ${
-                          checked
-                            ? 'bg-primary-foreground border-primary-foreground'
-                            : 'border-muted-foreground/40'
-                        }`}>
-                          {checked && (
-                            <svg viewBox="0 0 12 12" className={`w-full h-full ${WEEK_COLORS_TEXT[weekIdx % 5]}`}>
-                              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" fill="none" />
-                            </svg>
-                          )}
-                        </span>
+                        <span
+                          className={`inline-flex w-3.5 h-3.5 rounded-sm items-center justify-center transition-all duration-150`} 
+                          style={checked
+                            ? { backgroundColor: WEEK_HSL_COLORS[weekIdx % WEEK_HSL_COLORS.length], border: `1px solid rgba(0,0,0,0.12)`, boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.08)' }
+                            : { backgroundColor: WEEK_HSL_BG_LIGHT[weekIdx % WEEK_HSL_BG_LIGHT.length], border: `1px solid rgba(15,23,42,0.36)` }
+                          }
+                        >
+                           {checked && (
+                             <svg viewBox="0 0 12 12" className="w-3 h-3 text-white">
+                               <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" fill="none" />
+                             </svg>
+                           )}
+                         </span>
                       </button>
                     </td>
                   );
                 })}
                 <td className="border border-border p-1 text-center font-medium text-foreground">{daysInMonth}</td>
-                <td className="border border-border p-1 text-center font-medium text-foreground">{habitProgress(habit)}</td>
+                {/* Progress bar instead of raw number */}
+                {(() => {
+                  const completed = habitProgress(habit);
+                  const pct = daysInMonth > 0 ? (completed / daysInMonth) * 100 : 0;
+                  const color = WEEK_HSL_COLORS[hi % WEEK_HSL_COLORS.length];
+                  return (
+                    <td className="border border-border p-1 text-center font-medium text-foreground">
+                      <div className="w-28 mx-auto">
+                        <MiniBar percentage={pct} color={color} />
+                        <div className="text-xxs text-muted-foreground mt-0.5">{Math.round(pct)}%</div>
+                      </div>
+                    </td>
+                  );
+                })()}
               </tr>
             ))}
+
+            {/* Inline add-new-habit row shown when user clicks Add Habit */}
+            {showAddRow && (
+              <tr className={habits.length % 2 === 0 ? "bg-card" : "bg-secondary/30"}>
+                <td
+                  className="sticky left-0 z-10 border border-border p-1 font-medium text-foreground whitespace-nowrap"
+                  style={{ backgroundColor: habits.length % 2 === 0 ? 'hsl(var(--card))' : 'hsl(var(--secondary) / 0.3)' }}
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={addInputRef}
+                      value={newHabitName}
+                      onChange={e => setNewHabitName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveNewHabit(); if (e.key === 'Escape') cancelAdd(); }}
+                      placeholder="New habit name"
+                      className="w-48 bg-transparent border-b border-primary outline-none text-xxs sm:text-xs"
+                    />
+                    <button onClick={saveNewHabit} className="text-xxs px-2 py-0.5 bg-primary text-primary-foreground rounded">Save</button>
+                    <button onClick={cancelAdd} className="text-xxs px-2 py-0.5 bg-muted text-muted-foreground rounded">Cancel</button>
+                  </div>
+                </td>
+                {Array.from({ length: daysInMonth }, (_, d) => (
+                  <td key={d} className="border border-border p-0 text-center">&nbsp;</td>
+                ))}
+                <td className="border border-border p-1 text-center font-medium text-foreground">{daysInMonth}</td>
+                <td className="border border-border p-1 text-center font-medium text-foreground">0</td>
+              </tr>
+            )}
 
             <tr><td colSpan={daysInMonth + 3} className="border border-border p-1 bg-card h-2"></td></tr>
 
@@ -353,6 +448,25 @@ export default function HabitTracker() {
         </table>
       </div>
 
+      {/* Weekly Progress Overview */}
+      <section className="mt-4">
+        <h2 className="font-bold text-sm text-foreground mb-3">📈 Progress per Week</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+          {weekRanges.map((w, wi) => {
+            const completed = stats.weeklyCompleted[wi] || 0;
+            const total = stats.weeklyTotal[wi] || (w.days.length * habits.length);
+            const pct = total > 0 ? (completed / total) * 100 : 0;
+            const color = WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length];
+            return (
+              <div key={wi} className="flex flex-col items-center">
+                <WeeklyDonut percentage={pct} color={color} label={w.label} />
+                <div className="text-xxs text-muted-foreground mt-1 text-center">{w.dateRange}</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Daily Progress Overview */}
       <DailyOverview stats={stats} daysInMonth={daysInMonth} habits={habits} monthName={monthName} />
     </div>
@@ -366,6 +480,38 @@ function MiniBar({ percentage, color }: { percentage: number; color: string }) {
         className="h-full rounded-full transition-all duration-500"
         style={{ width: `${percentage}%`, backgroundColor: color }}
       />
+    </div>
+  );
+}
+
+// Weekly donut chart used in the Weekly Progress Overview
+function WeeklyDonut({ percentage, color, label }: { percentage: number; color: string; label?: string }) {
+  const size = 72;
+  const stroke = 8;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="relative w-[72px] h-[72px] flex items-center justify-center">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block">
+        <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
+          <circle cx={size / 2} cy={size / 2} r={radius} stroke="#e6e6e6" strokeWidth={stroke} fill="transparent" />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            fill="transparent"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+          />
+        </g>
+      </svg>
+      <div className="absolute text-xxs font-semibold text-foreground">{Math.round(percentage)}%</div>
     </div>
   );
 }
