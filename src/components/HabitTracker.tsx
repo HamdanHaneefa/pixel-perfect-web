@@ -1,6 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const HABITS = [
+const DEFAULT_HABITS = [
   "Morning Meditation",
   "Exercise 30 min",
   "Read 20 Pages",
@@ -13,114 +20,209 @@ const HABITS = [
   "Learn New Skill",
 ];
 
-const MONTH = "January";
-const YEAR = 2025;
-const DAYS_IN_MONTH = 31;
+const YEAR = 2026;
 
-const WEEK_RANGES: { label: string; days: number[]; color: string; dateRange: string }[] = [
-  { label: "Week 1", days: [1,2,3,4,5,6,7], color: "bg-week1", dateRange: "01 – 07 Jan" },
-  { label: "Week 2", days: [8,9,10,11,12,13,14], color: "bg-week2", dateRange: "08 – 14 Jan" },
-  { label: "Week 3", days: [15,16,17,18,19,20,21], color: "bg-week3", dateRange: "19 – 21 Jan" },
-  { label: "Week 4", days: [22,23,24,25,26,27,28], color: "bg-week4", dateRange: "22 – 28 Jan" },
-  { label: "Week 5", days: [29,30,31], color: "bg-week5", dateRange: "29 – 31 Jan" },
+const MONTHS = [
+  { value: "2", label: "March 2026", name: "March", days: 31 },
+  { value: "3", label: "April 2026", name: "April", days: 30 },
+  { value: "4", label: "May 2026", name: "May", days: 31 },
+  { value: "5", label: "June 2026", name: "June", days: 30 },
+  { value: "6", label: "July 2026", name: "July", days: 31 },
+  { value: "7", label: "August 2026", name: "August", days: 31 },
+  { value: "8", label: "September 2026", name: "September", days: 30 },
+  { value: "9", label: "October 2026", name: "October", days: 31 },
+  { value: "10", label: "November 2026", name: "November", days: 30 },
+  { value: "11", label: "December 2026", name: "December", days: 31 },
 ];
 
-const DAY_NAMES = ["Wed","Thu","Fri","Sat","Sun","Mon","Tue","Wed","Thu","Fri","Sat","Sun","Mon","Tue","Wed","Thu","Fri","Sat","Sun","Mon","Tue","Wed","Thu","Fri","Sat","Sun","Mon","Tue","Wed","Thu","Fri"];
+const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const WEEK_COLORS_RING = [
-  "ring-week1",
-  "ring-week2", 
-  "ring-week3",
-  "ring-week4",
-  "ring-week5",
-  "ring-weekMonthly",
-];
+function getDayNames(monthIdx: number, year: number, daysInMonth: number) {
+  const names: string[] = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, monthIdx, d);
+    names.push(DAY_ABBR[date.getDay()]);
+  }
+  return names;
+}
+
+function getWeekRanges(daysInMonth: number, monthName: string) {
+  const colors = ["bg-week1", "bg-week2", "bg-week3", "bg-week4", "bg-week5"];
+  const ranges: { label: string; days: number[]; color: string; dateRange: string }[] = [];
+  let day = 1;
+  let weekNum = 1;
+  while (day <= daysInMonth) {
+    const start = day;
+    const end = Math.min(day + 6, daysInMonth);
+    const days = [];
+    for (let d = start; d <= end; d++) days.push(d);
+    const mo = monthName.substring(0, 3);
+    ranges.push({
+      label: `Week ${weekNum}`,
+      days,
+      color: colors[(weekNum - 1) % 5],
+      dateRange: `${String(start).padStart(2, "0")} – ${String(end).padStart(2, "0")} ${mo}`,
+    });
+    day = end + 1;
+    weekNum++;
+  }
+  return ranges;
+}
 
 const WEEK_COLORS_BG = [
-  "bg-week1",
-  "bg-week2",
-  "bg-week3",
-  "bg-week4",
-  "bg-week5",
-  "bg-weekMonthly",
+  "bg-week1", "bg-week2", "bg-week3", "bg-week4", "bg-week5", "bg-weekMonthly",
 ];
 
 const WEEK_COLORS_TEXT = [
-  "text-week1",
-  "text-week2",
-  "text-week3",
-  "text-week4",
-  "text-week5",
-  "text-weekMonthly",
+  "text-week1", "text-week2", "text-week3", "text-week4", "text-week5", "text-weekMonthly",
+];
+
+const WEEK_HSL_COLORS = [
+  "hsl(221, 83%, 53%)",
+  "hsl(271, 81%, 56%)",
+  "hsl(0, 84%, 60%)",
+  "hsl(45, 93%, 47%)",
+  "hsl(142, 71%, 45%)",
+  "hsl(300, 64%, 49%)",
 ];
 
 type HabitData = Record<string, Record<number, boolean>>;
 
 export default function HabitTracker() {
+  const [selectedMonth, setSelectedMonth] = useState("2"); // March = index 2
+  const monthInfo = MONTHS.find(m => m.value === selectedMonth)!;
+  const monthIdx = parseInt(selectedMonth);
+  const daysInMonth = monthInfo.days;
+  const monthName = monthInfo.name;
+
+  const dayNames = useMemo(() => getDayNames(monthIdx, YEAR, daysInMonth), [monthIdx, daysInMonth]);
+  const weekRanges = useMemo(() => getWeekRanges(daysInMonth, monthName), [daysInMonth, monthName]);
+
+  const [habits, setHabits] = useState<string[]>(() => {
+    const saved = localStorage.getItem("habit-tracker-habits");
+    if (saved) return JSON.parse(saved);
+    return [...DEFAULT_HABITS];
+  });
+
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const storageKey = `habit-tracker-data-${YEAR}-${selectedMonth}`;
   const [data, setData] = useState<HabitData>(() => {
-    const saved = localStorage.getItem("habit-tracker-data");
+    const saved = localStorage.getItem(storageKey);
     if (saved) return JSON.parse(saved);
     const init: HabitData = {};
-    HABITS.forEach(h => { init[h] = {}; });
+    habits.forEach(h => { init[h] = {}; });
     return init;
   });
+
+  // Reload data when month changes
+  const handleMonthChange = (val: string) => {
+    setSelectedMonth(val);
+    const key = `habit-tracker-data-${YEAR}-${val}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      setData(JSON.parse(saved));
+    } else {
+      const init: HabitData = {};
+      habits.forEach(h => { init[h] = {}; });
+      setData(init);
+    }
+  };
 
   const toggle = (habit: string, day: number) => {
     setData(prev => {
       const next = { ...prev, [habit]: { ...prev[habit], [day]: !prev[habit]?.[day] } };
-      localStorage.setItem("habit-tracker-data", JSON.stringify(next));
+      localStorage.setItem(storageKey, JSON.stringify(next));
       return next;
     });
+  };
+
+  const startEditing = (idx: number) => {
+    setEditingIdx(idx);
+    setEditValue(habits[idx]);
+  };
+
+  const saveEdit = () => {
+    if (editingIdx === null) return;
+    const oldName = habits[editingIdx];
+    const newName = editValue.trim() || oldName;
+    if (newName !== oldName) {
+      const newHabits = [...habits];
+      newHabits[editingIdx] = newName;
+      setHabits(newHabits);
+      localStorage.setItem("habit-tracker-habits", JSON.stringify(newHabits));
+      // Migrate data
+      setData(prev => {
+        const next = { ...prev };
+        if (next[oldName]) {
+          next[newName] = next[oldName];
+          delete next[oldName];
+        }
+        localStorage.setItem(storageKey, JSON.stringify(next));
+        return next;
+      });
+    }
+    setEditingIdx(null);
   };
 
   const stats = useMemo(() => {
     const dailyCompleted: Record<number, number> = {};
     const dailyIncomplete: Record<number, number> = {};
-    for (let d = 1; d <= DAYS_IN_MONTH; d++) {
+    for (let d = 1; d <= daysInMonth; d++) {
       let c = 0;
-      HABITS.forEach(h => { if (data[h]?.[d]) c++; });
+      habits.forEach(h => { if (data[h]?.[d]) c++; });
       dailyCompleted[d] = c;
-      dailyIncomplete[d] = HABITS.length - c;
+      dailyIncomplete[d] = habits.length - c;
     }
 
-    const weeklyCompleted = WEEK_RANGES.map(w => {
+    const weeklyCompleted = weekRanges.map(w => {
       let total = 0;
       w.days.forEach(d => { total += dailyCompleted[d]; });
       return total;
     });
 
-    const weeklyTotal = WEEK_RANGES.map(w => w.days.length * HABITS.length);
+    const weeklyTotal = weekRanges.map(w => w.days.length * habits.length);
     const totalCompleted = Object.values(dailyCompleted).reduce((a, b) => a + b, 0);
-    const totalPossible = DAYS_IN_MONTH * HABITS.length;
+    const totalPossible = daysInMonth * habits.length;
 
     return { dailyCompleted, dailyIncomplete, weeklyCompleted, weeklyTotal, totalCompleted, totalPossible };
-  }, [data]);
+  }, [data, daysInMonth, habits, weekRanges]);
 
   const habitProgress = (habit: string) => {
     let c = 0;
-    for (let d = 1; d <= DAYS_IN_MONTH; d++) { if (data[habit]?.[d]) c++; }
+    for (let d = 1; d <= daysInMonth; d++) { if (data[habit]?.[d]) c++; }
     return c;
   };
 
   return (
     <div className="min-h-screen bg-background p-2 sm:p-4 overflow-x-auto">
-      {/* Title */}
-      <div className="bg-tracker-header text-tracker-header-foreground text-center py-2 px-4 rounded-t font-bold text-sm sm:text-base">
-        📅 {MONTH} {YEAR} — Habit Tracker
+      {/* Title with month selector */}
+      <div className="bg-tracker-header text-tracker-header-foreground flex items-center justify-between py-2 px-4 rounded-t font-bold text-sm sm:text-base">
+        <span>📅 {monthName} {YEAR} — Habit Tracker</span>
+        <Select value={selectedMonth} onValueChange={handleMonthChange}>
+          <SelectTrigger className="w-[160px] h-7 text-xs bg-primary-foreground/20 border-primary-foreground/30 text-primary-foreground">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTHS.map(m => (
+              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Main Grid */}
       <div className="overflow-x-auto border border-border rounded-b">
         <table className="w-full border-collapse text-xxs sm:text-xs tabular-nums min-w-[900px]">
           <thead>
-            {/* Week headers */}
             <tr>
               <th className="sticky left-0 z-10 bg-card border border-border p-1 min-w-[120px]"></th>
-              {WEEK_RANGES.map((w, wi) => (
+              {weekRanges.map((w, wi) => (
                 <th
                   key={w.label}
                   colSpan={w.days.length}
-                  className={`${WEEK_COLORS_BG[wi]} text-primary-foreground border border-border p-1 text-center font-semibold`}
+                  className={`${WEEK_COLORS_BG[wi % 5]} text-primary-foreground border border-border p-1 text-center font-semibold`}
                 >
                   {w.label}
                 </th>
@@ -128,25 +230,23 @@ export default function HabitTracker() {
               <th className="bg-card border border-border p-1 text-center font-semibold text-foreground" rowSpan={2}>Goal</th>
               <th className="bg-card border border-border p-1 text-center font-semibold text-foreground" rowSpan={2}>Progress</th>
             </tr>
-            {/* Day numbers */}
             <tr>
               <th className="sticky left-0 z-10 bg-card border border-border p-1 text-left font-semibold text-foreground">Habits</th>
-              {Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).map(d => {
-                const weekIdx = WEEK_RANGES.findIndex(w => w.days.includes(d));
+              {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
+                const weekIdx = weekRanges.findIndex(w => w.days.includes(d));
                 return (
-                  <th key={d} className={`border border-border p-0.5 text-center font-medium ${WEEK_COLORS_BG[weekIdx]} text-primary-foreground`}>
+                  <th key={d} className={`border border-border p-0.5 text-center font-medium ${WEEK_COLORS_BG[weekIdx % 5]} text-primary-foreground`}>
                     <div>{d}</div>
                   </th>
                 );
               })}
             </tr>
-            {/* Day names */}
             <tr>
               <th className="sticky left-0 z-10 bg-card border border-border p-1 text-left text-muted-foreground font-normal">Days</th>
-              {DAY_NAMES.map((dn, i) => {
-                const weekIdx = WEEK_RANGES.findIndex(w => w.days.includes(i + 1));
+              {dayNames.map((dn, i) => {
+                const weekIdx = weekRanges.findIndex(w => w.days.includes(i + 1));
                 return (
-                  <th key={i} className={`border border-border p-0.5 text-center font-normal ${i + 1 <= DAYS_IN_MONTH ? `${WEEK_COLORS_BG[weekIdx]} text-primary-foreground` : 'bg-card text-muted-foreground'}`}>
+                  <th key={i} className={`border border-border p-0.5 text-center font-normal ${WEEK_COLORS_BG[weekIdx % 5]} text-primary-foreground`}>
                     {dn}
                   </th>
                 );
@@ -156,22 +256,36 @@ export default function HabitTracker() {
             </tr>
           </thead>
           <tbody>
-            {/* Habit rows */}
-            {HABITS.map((habit, hi) => (
-              <tr key={habit} className={hi % 2 === 0 ? "bg-card" : "bg-secondary/30"}>
-                <td className="sticky left-0 z-10 border border-border p-1 font-medium text-foreground whitespace-nowrap" style={{ backgroundColor: hi % 2 === 0 ? 'hsl(var(--card))' : 'hsl(var(--secondary) / 0.3)' }}>
-                  {hi + 1}. {habit}
+            {habits.map((habit, hi) => (
+              <tr key={hi} className={hi % 2 === 0 ? "bg-card" : "bg-secondary/30"}>
+                <td
+                  className="sticky left-0 z-10 border border-border p-1 font-medium text-foreground whitespace-nowrap cursor-pointer"
+                  style={{ backgroundColor: hi % 2 === 0 ? 'hsl(var(--card))' : 'hsl(var(--secondary) / 0.3)' }}
+                  onDoubleClick={() => startEditing(hi)}
+                >
+                  {editingIdx === hi ? (
+                    <input
+                      className="bg-transparent border-b border-primary outline-none w-full text-foreground text-xxs sm:text-xs"
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      onBlur={saveEdit}
+                      onKeyDown={e => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditingIdx(null); }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span title="Double-click to edit">{hi + 1}. {habit}</span>
+                  )}
                 </td>
-                {Array.from({ length: DAYS_IN_MONTH }, (_, i) => i + 1).map(d => {
+                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
                   const checked = data[habit]?.[d] || false;
-                  const weekIdx = WEEK_RANGES.findIndex(w => w.days.includes(d));
+                  const weekIdx = weekRanges.findIndex(w => w.days.includes(d));
                   return (
                     <td key={d} className="border border-border p-0 text-center">
                       <button
                         onClick={() => toggle(habit, d)}
                         className={`w-full h-full flex items-center justify-center p-0.5 transition-colors duration-100 ${
                           checked
-                            ? `${WEEK_COLORS_BG[weekIdx]} text-primary-foreground`
+                            ? `${WEEK_COLORS_BG[weekIdx % 5]} text-primary-foreground`
                             : 'hover:bg-muted'
                         }`}
                         aria-label={`${habit} day ${d}`}
@@ -182,7 +296,7 @@ export default function HabitTracker() {
                             : 'border-muted-foreground/40'
                         }`}>
                           {checked && (
-                            <svg viewBox="0 0 12 12" className={`w-full h-full ${WEEK_COLORS_TEXT[weekIdx]}`}>
+                            <svg viewBox="0 0 12 12" className={`w-full h-full ${WEEK_COLORS_TEXT[weekIdx % 5]}`}>
                               <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" fill="none" />
                             </svg>
                           )}
@@ -191,36 +305,33 @@ export default function HabitTracker() {
                     </td>
                   );
                 })}
-                <td className="border border-border p-1 text-center font-medium text-foreground">{DAYS_IN_MONTH}</td>
+                <td className="border border-border p-1 text-center font-medium text-foreground">{daysInMonth}</td>
                 <td className="border border-border p-1 text-center font-medium text-foreground">{habitProgress(habit)}</td>
               </tr>
             ))}
 
-            {/* Empty row */}
-            <tr><td colSpan={DAYS_IN_MONTH + 3} className="border border-border p-1 bg-card h-2"></td></tr>
+            <tr><td colSpan={daysInMonth + 3} className="border border-border p-1 bg-card h-2"></td></tr>
 
-            {/* Summary rows */}
             <tr className="bg-secondary/50">
-              <td className="sticky left-0 z-10 bg-secondary/50 border border-border p-1 font-semibold text-foreground">{HABITS.length + 2}. Habits Completed</td>
-              {Array.from({ length: DAYS_IN_MONTH }, (_, i) => (
+              <td className="sticky left-0 z-10 bg-secondary/50 border border-border p-1 font-semibold text-foreground">{habits.length + 2}. Habits Completed</td>
+              {Array.from({ length: daysInMonth }, (_, i) => (
                 <td key={i} className="border border-border p-0.5 text-center font-medium text-foreground">{stats.dailyCompleted[i + 1]}</td>
               ))}
               <td className="border border-border p-1"></td>
               <td className="border border-border p-1 text-center font-bold text-foreground">{stats.totalCompleted}</td>
             </tr>
             <tr className="bg-secondary/50">
-              <td className="sticky left-0 z-10 bg-secondary/50 border border-border p-1 font-semibold text-foreground">{HABITS.length + 3}. Habits Incomplete</td>
-              {Array.from({ length: DAYS_IN_MONTH }, (_, i) => (
+              <td className="sticky left-0 z-10 bg-secondary/50 border border-border p-1 font-semibold text-foreground">{habits.length + 3}. Habits Incomplete</td>
+              {Array.from({ length: daysInMonth }, (_, i) => (
                 <td key={i} className="border border-border p-0.5 text-center font-medium text-foreground">{stats.dailyIncomplete[i + 1]}</td>
               ))}
               <td className="border border-border p-1"></td>
               <td className="border border-border p-1 text-center font-bold text-foreground">{stats.totalPossible - stats.totalCompleted}</td>
             </tr>
 
-            {/* Weekly summary */}
             <tr className="bg-card">
               <td className="sticky left-0 z-10 bg-card border border-border p-1 font-semibold text-foreground">Weekly Completed</td>
-              {WEEK_RANGES.map((w, wi) => (
+              {weekRanges.map((w, wi) => (
                 <td key={wi} colSpan={w.days.length} className="border border-border p-1 text-center font-bold text-foreground">
                   {stats.weeklyCompleted[wi]}
                 </td>
@@ -230,7 +341,7 @@ export default function HabitTracker() {
             </tr>
             <tr className="bg-card">
               <td className="sticky left-0 z-10 bg-card border border-border p-1 font-semibold text-foreground">Weekly Incomplete</td>
-              {WEEK_RANGES.map((w, wi) => (
+              {weekRanges.map((w, wi) => (
                 <td key={wi} colSpan={w.days.length} className="border border-border p-1 text-center font-bold text-foreground">
                   {stats.weeklyTotal[wi] - stats.weeklyCompleted[wi]}
                 </td>
@@ -242,107 +353,59 @@ export default function HabitTracker() {
         </table>
       </div>
 
-      {/* Weekly Progress Overview */}
-      <WeeklyOverview stats={stats} data={data} />
+      {/* Daily Progress Overview */}
+      <DailyOverview stats={stats} daysInMonth={daysInMonth} habits={habits} monthName={monthName} />
     </div>
   );
 }
 
-function DonutChart({ percentage, color, size = 80 }: { percentage: number; color: string; size?: number }) {
-  const strokeWidth = 6;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
-
+function MiniBar({ percentage, color }: { percentage: number; color: string }) {
   return (
-    <svg width={size} height={size} className="block mx-auto">
-      <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="hsl(var(--border))" strokeWidth={strokeWidth} />
-      <circle
-        cx={size/2} cy={size/2} r={radius} fill="none"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        transform={`rotate(-90 ${size/2} ${size/2})`}
-        className="transition-all duration-500"
+    <div className="w-full h-2 bg-border rounded-full overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all duration-500"
+        style={{ width: `${percentage}%`, backgroundColor: color }}
       />
-      <text x="50%" y="50%" textAnchor="middle" dy="0.35em" className="fill-foreground font-bold text-sm">
-        {Math.round(percentage)}%
-      </text>
-    </svg>
+    </div>
   );
 }
 
-const WEEK_HSL_COLORS = [
-  "hsl(221, 83%, 53%)",
-  "hsl(271, 81%, 56%)",
-  "hsl(0, 84%, 60%)",
-  "hsl(45, 93%, 47%)",
-  "hsl(142, 71%, 45%)",
-  "hsl(300, 64%, 49%)",
-];
-
-const TASKS = [
-  "Morning Meditation",
-  "Exercise 30 min",
-  "Read 20 Pages",
-  "Drink 8 Glasses",
-  "Journal Writing",
-];
-
-function WeeklyOverview({ stats, data }: { stats: any; data: HabitData }) {
-  const cards = [
-    ...WEEK_RANGES.map((w, i) => ({
-      label: w.label,
-      dateRange: w.dateRange,
-      completed: stats.weeklyCompleted[i],
-      total: stats.weeklyTotal[i],
-      colorIdx: i,
-    })),
-    {
-      label: "Monthly",
-      dateRange: `${MONTH} ${YEAR}`,
-      completed: stats.totalCompleted,
-      total: stats.totalPossible,
-      colorIdx: 5,
-    },
-  ];
+function DailyOverview({ stats, daysInMonth, habits, monthName }: {
+  stats: { dailyCompleted: Record<number, number>; dailyIncomplete: Record<number, number>; totalCompleted: number; totalPossible: number };
+  daysInMonth: number;
+  habits: string[];
+  monthName: string;
+}) {
+  const maxPerDay = habits.length;
 
   return (
     <div className="mt-4">
       <h2 className="font-bold text-sm text-foreground mb-3 flex items-center gap-2">
-        📊 Weekly Progress Overview
+        📊 Daily Progress Overview — {monthName} {YEAR}
       </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        {cards.map((card, i) => {
-          const pct = card.total > 0 ? (card.completed / card.total) * 100 : 0;
+      <div className="grid grid-cols-4 sm:grid-cols-7 lg:grid-cols-10 gap-1.5">
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1;
+          const completed = stats.dailyCompleted[day];
+          const pct = maxPerDay > 0 ? (completed / maxPerDay) * 100 : 0;
+          const weekIdx = Math.floor(i / 7) % 5;
           return (
-            <div key={i} className="border border-border rounded bg-card overflow-hidden shadow-sm">
-              <div className={`${WEEK_COLORS_BG[card.colorIdx]} text-primary-foreground text-center py-1 text-xxs font-bold`}>
-                {card.label}
+            <div key={day} className="border border-border rounded bg-card overflow-hidden shadow-sm">
+              <div className={`${WEEK_COLORS_BG[weekIdx]} text-primary-foreground text-center py-0.5 text-xxs font-bold`}>
+                Day {day}
               </div>
-              <div className="text-center text-xxs text-muted-foreground py-0.5">{card.dateRange}</div>
-              <div className="p-2">
-                <DonutChart percentage={pct} color={WEEK_HSL_COLORS[card.colorIdx]} size={70} />
-              </div>
-              <div className={`${WEEK_COLORS_BG[card.colorIdx]} text-primary-foreground text-center py-0.5 text-xxs font-bold`}>
-                Tasks
-              </div>
-              <div className="p-1.5 space-y-0.5">
-                {TASKS.map((task, ti) => (
-                  <div key={ti} className="flex items-center gap-1 text-xxs text-foreground">
-                    <span className="w-2.5 h-2.5 border border-muted-foreground/40 rounded-sm inline-block flex-shrink-0" />
-                    <span className="truncate">{task}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-border text-center py-1 text-xxs text-muted-foreground font-medium">
-                Completed: {card.completed} / {card.total}
+              <div className="p-1.5 space-y-1">
+                <div className="text-center text-lg font-bold text-foreground">{completed}</div>
+                <div className="text-center text-xxs text-muted-foreground">of {maxPerDay}</div>
+                <MiniBar percentage={pct} color={WEEK_HSL_COLORS[weekIdx]} />
+                <div className="text-center text-xxs font-medium text-foreground">{Math.round(pct)}%</div>
               </div>
             </div>
           );
         })}
+      </div>
+      <div className="mt-3 text-center text-sm font-semibold text-foreground">
+        Monthly Total: {stats.totalCompleted} / {stats.totalPossible} ({stats.totalPossible > 0 ? Math.round((stats.totalCompleted / stats.totalPossible) * 100) : 0}%)
       </div>
     </div>
   );
