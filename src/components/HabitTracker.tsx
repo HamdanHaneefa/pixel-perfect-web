@@ -203,7 +203,7 @@ export default function HabitTracker() {
             </Select>
           </div>
           <div className="flex justify-center">
-            <span className="font-bold tracking-tight text-sm text-tracker-header-foreground whitespace-nowrap">{monthName} {YEAR} — Habit Tracker</span>
+            <span className="font-bold tracking-widest text-base text-tracker-header-foreground whitespace-nowrap uppercase" style={{ fontFamily: "'Inter', system-ui, sans-serif", letterSpacing: '0.08em' }}>{monthName} {YEAR} — Habit Tracker</span>
           </div>
           <div className="flex items-center justify-end gap-2">
             {user && (
@@ -548,15 +548,15 @@ export default function HabitTracker() {
       <section className="mt-4">
         <h2 className="hidden sm:block font-semibold text-xs text-foreground mb-3 tracking-tight uppercase" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>Progress per Week</h2>
         <h2 className="sm:hidden font-bold text-sm text-foreground mb-3">📈 Progress per Week</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+        <div className="flex flex-wrap justify-center gap-14">
           {weekRanges.map((w, wi) => {
             const completed = stats.weeklyCompleted[wi] || 0;
             const total     = stats.weeklyTotal[wi] || (w.days.length * habits.length);
             const pct       = total > 0 ? (completed / total) * 100 : 0;
             return (
-              <div key={wi} className="flex flex-col items-center">
+              <div key={wi} className="flex flex-col items-center gap-3">
                 <WeeklyDonut percentage={pct} color={WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length]} label={w.label} />
-                <div className="text-xxs text-muted-foreground mt-1 text-center">{w.dateRange}</div>
+                <div className="text-xs text-muted-foreground text-center font-medium">{w.dateRange}</div>
               </div>
             );
           })}
@@ -616,20 +616,20 @@ function MiniBar({ percentage, color }: { percentage: number; color: string }) {
 }
 
 function WeeklyDonut({ percentage, color, label }: { percentage: number; color: string; label?: string }) {
-  const size = 72, stroke = 8, radius = (size - stroke) / 2;
+  const size = 100, stroke = 12, radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (percentage / 100) * circumference;
   return (
-    <div className="relative w-[72px] h-[72px] flex items-center justify-center">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <div style={{ width: size, height: size, flexShrink: 0 }} className="relative flex items-center justify-center">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block' }}>
         <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-          <circle cx={size/2} cy={size/2} r={radius} stroke="#e6e6e6" strokeWidth={stroke} fill="transparent" />
+          <circle cx={size/2} cy={size/2} r={radius} stroke="#e2e8f0" strokeWidth={stroke} fill="transparent" />
           <circle cx={size/2} cy={size/2} r={radius} stroke={color} strokeWidth={stroke} strokeLinecap="round"
             fill="transparent" strokeDasharray={circumference} strokeDashoffset={offset}
             style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
         </g>
       </svg>
-      <div className="absolute text-xxs font-semibold text-foreground">{Math.round(percentage)}%</div>
+      <div className="absolute text-sm font-bold text-foreground" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>{Math.round(percentage)}%</div>
     </div>
   );
 }
