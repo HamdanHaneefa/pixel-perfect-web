@@ -164,7 +164,10 @@ export default function HabitTracker() {
         {/* Mobile header */}
         <div className="flex sm:hidden flex-col gap-1.5 py-2 px-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm leading-tight">📅 {monthName} {YEAR}</span>
+            <span className="flex items-center gap-1.5 text-sm leading-tight">
+                <img src="https://play-lh.googleusercontent.com/6GoMgqNIG0997uH91CHQ9H6cTH276ts2zEChCVIHonrF0m800CRowJc15XEhH1XeVng" alt="logo" className="w-5 h-5 rounded-sm object-cover" />
+                {monthName} {YEAR}
+              </span>
             {user && (
               <div className="flex items-center gap-1.5">
                 {user.user_metadata?.avatar_url
