@@ -1,7 +1,23 @@
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
 export default function Login() {
-  const { signInWithGoogle } = useAuth()
+  const { signInWithGoogle, user, loading } = useAuth()
+  const navigate = useNavigate()
+
+  // If already logged in, go to home
+  useEffect(() => {
+    if (!loading && user) navigate('/', { replace: true })
+  }, [user, loading, navigate])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground text-sm">Loading...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

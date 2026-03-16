@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null
   session: Session | null
   loading: boolean
+  isPaid: boolean
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
 }
@@ -16,19 +17,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isPaid, setIsPaid] = useState(false)
+
+  const fetchProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_paid')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (error) {
+      setIsPaid(false)
+      return
+    }
+
+    if (!data) {
+      await supabase.from('profiles').insert({ id: userId, is_paid: false })
+      setIsPaid(false)
+      return
+    }
+
+    setIsPaid(data.is_paid ?? false)
+  }
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
+      if (session?.user) fetchProfile(session.user.id)
       setLoading(false)
     })
 
-    // Listen for auth changes (handles cross-tab sync too)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
+      if (session?.user) fetchProfile(session.user.id)
+      else setIsPaid(false)
       setLoading(false)
     })
 
@@ -39,7 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: `${window.location.origin}/auth/callback`,
+        skipBrowserRedirect: false,
       },
     })
   }
@@ -49,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isPaid, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   )
