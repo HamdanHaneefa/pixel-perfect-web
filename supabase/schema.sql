@@ -4,8 +4,15 @@ create table habits (
   user_id uuid references auth.users(id) on delete cascade not null,
   name text not null,
   "order" integer not null default 0,
+  goal integer not null default 0,
   created_at timestamptz default now()
 );
+
+-- Migration: add goal column if upgrading existing DB
+-- alter table habits add column if not exists goal integer not null default 0;
+
+-- NOTE: Default habits are seeded client-side in useHabitData.ts
+-- when a new user logs in and has 0 habits.
 
 -- Habit logs table: stores checkbox state per day
 create table habit_logs (

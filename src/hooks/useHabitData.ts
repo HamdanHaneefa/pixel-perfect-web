@@ -6,9 +6,23 @@ export interface Habit {
   id: string
   name: string
   order: number
+  goal: number  // 0 = use days-in-month as default
 }
 
 export type LogMap = Record<string, Record<number, boolean>> // habit_id -> day -> completed
+
+const DEFAULT_HABITS = [
+  'Wake up at 05:00 ⏰',
+  'Gym 💪',
+  'No porn 💦🚫',
+  'Read 20 Pages 📖',
+  'Goal Journaling ✍️',
+  'No Alcohol 🍾',
+  'Sleep by 10 PM 💤',
+  'Learn New Skill 🔑',
+  'Eat healthy 🍽️',
+  'Cold shower 🚿',
+]
 
 export function useHabitData(year: number, month: number) {
   const { user } = useAuth()
@@ -21,10 +35,19 @@ export function useHabitData(year: number, month: number) {
     if (!user) return
     const { data } = await supabase
       .from('habits')
-      .select('id, name, order')
+      .select('id, name, order, goal')
       .eq('user_id', user.id)
       .order('order', { ascending: true })
     if (data) setHabits(data)
+    return data
+  }, [user])
+
+  // ── Seed default habits for new users ─────────────────────────────────────
+  const seedDefaultHabits = useCallback(async () => {
+    if (!user) return
+    await supabase.from('habits').insert(
+      DEFAULT_HABITS.map((name, i) => ({ user_id: user.id, name, order: i, goal: 0 }))
+    )
   }, [user])
 
   // ── Fetch logs for current month ──────────────────────────────────────────
@@ -46,12 +69,20 @@ export function useHabitData(year: number, month: number) {
     }
   }, [user, year, month])
 
-  // ── Initial load ──────────────────────────────────────────────────────────
+  // ── Initial load — seed defaults if new user ──────────────────────────────
   useEffect(() => {
     if (!user) return
     setLoading(true)
-    Promise.all([fetchHabits(), fetchLogs()]).finally(() => setLoading(false))
-  }, [fetchHabits, fetchLogs, user])
+    ;(async () => {
+      const data = await fetchHabits()
+      if (data && data.length === 0) {
+        await seedDefaultHabits()
+        await fetchHabits()
+      }
+      await fetchLogs()
+      setLoading(false)
+    })()
+  }, [fetchHabits, fetchLogs, seedDefaultHabits, user])
 
   // ── Realtime: habits changes ──────────────────────────────────────────────
   useEffect(() => {
@@ -87,7 +118,6 @@ export function useHabitData(year: number, month: number) {
   const toggle = useCallback(async (habitId: string, day: number) => {
     if (!user) return
     const current = logs[habitId]?.[day] ?? false
-    // Optimistic update
     setLogs(prev => ({
       ...prev,
       [habitId]: { ...prev[habitId], [day]: !current },
@@ -106,7 +136,7 @@ export function useHabitData(year: number, month: number) {
   const addHabit = useCallback(async (name: string) => {
     if (!user) return
     const nextOrder = habits.length > 0 ? Math.max(...habits.map(h => h.order)) + 1 : 0
-    await supabase.from('habits').insert({ user_id: user.id, name, order: nextOrder })
+    await supabase.from('habits').insert({ user_id: user.id, name, order: nextOrder, goal: 0 })
   }, [user, habits])
 
   // ── Rename a habit ────────────────────────────────────────────────────────
@@ -114,5 +144,17 @@ export function useHabitData(year: number, month: number) {
     await supabase.from('habits').update({ name }).eq('id', id)
   }, [])
 
-  return { habits, logs, loading, toggle, addHabit, renameHabit }
+  // ── Delete a habit ────────────────────────────────────────────────────────
+  const deleteHabit = useCallback(async (id: string) => {
+    setHabits(prev => prev.filter(h => h.id !== id))
+    await supabase.from('habits').delete().eq('id', id)
+  }, [])
+
+  // ── Update goal ───────────────────────────────────────────────────────────
+  const updateGoal = useCallback(async (id: string, goal: number) => {
+    setHabits(prev => prev.map(h => h.id === id ? { ...h, goal } : h))
+    await supabase.from('habits').update({ goal }).eq('id', id)
+  }, [])
+
+  return { habits, logs, loading, toggle, addHabit, renameHabit, deleteHabit, updateGoal }
 }

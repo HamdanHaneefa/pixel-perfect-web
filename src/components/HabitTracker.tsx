@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -58,9 +58,14 @@ const WEEK_HSL_COLORS = [
   "hsl(221, 83%, 53%)","hsl(271, 81%, 56%)","hsl(0, 84%, 60%)",
   "hsl(45, 93%, 47%)","hsl(142, 71%, 45%)","hsl(300, 64%, 49%)",
 ];
+// Light mode pastels — used in light, overridden in dark via isDark flag
 const WEEK_HSL_BG_LIGHT = [
   "hsl(221, 83%, 86%)","hsl(271, 81%, 86%)","hsl(0, 84%, 87%)",
   "hsl(45, 93%, 87%)","hsl(142, 71%, 87%)","hsl(300, 64%, 87%)",
+];
+const WEEK_HSL_BG_DARK = [
+  "hsl(221, 40%, 18%)","hsl(271, 35%, 19%)","hsl(0, 35%, 19%)",
+  "hsl(45, 35%, 18%)","hsl(142, 30%, 17%)","hsl(300, 30%, 18%)",
 ];
 
 export default function HabitTracker() {
@@ -71,7 +76,7 @@ export default function HabitTracker() {
   const daysInMonth = monthInfo.days;
   const monthName   = monthInfo.name;
 
-  const { habits, logs, loading, toggle, addHabit, renameHabit } =
+  const { habits, logs, loading, toggle, addHabit, renameHabit, deleteHabit, updateGoal } =
     useHabitData(YEAR, monthIdx);
 
   const dayNames  = useMemo(() => getDayNames(monthIdx, YEAR, daysInMonth), [monthIdx, daysInMonth]);
@@ -83,11 +88,39 @@ export default function HabitTracker() {
   const [newHabitName, setNewHabitName] = useState("");
   const addInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Goal editing
+  const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
+  const [editGoalValue, setEditGoalValue] = useState("");
+
   // Mobile swipe state
   const [mobileWeekIdx, setMobileWeekIdx] = useState(0);
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
   const [showSignOutDialog, setShowSignOutDialog] = useState(false);
+
+  // Dark mode toggle — persisted in localStorage
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark';
+    }
+    return false;
+  });
+
+  const toggleDark = () => {
+    const next = !isDark;
+    setIsDark(next);
+    localStorage.setItem('theme', next ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', next);
+  };
+
+  // Apply on mount
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDark);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const cellBg = isDark ? WEEK_HSL_BG_DARK : WEEK_HSL_BG_LIGHT;
+  const checkEmptyBorder = isDark ? '1px solid rgba(255,255,255,0.25)' : '1px solid rgba(15,23,42,0.36)';
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -123,6 +156,17 @@ export default function HabitTracker() {
     setEditingId(null);
   };
 
+  const startEditingGoal = (id: string, currentGoal: number) => {
+    setEditingGoalId(id);
+    setEditGoalValue(currentGoal > 0 ? String(currentGoal) : String(daysInMonth));
+  };
+  const saveGoal = async () => {
+    if (!editingGoalId) return;
+    const val = parseInt(editGoalValue);
+    if (!isNaN(val) && val > 0) await updateGoal(editingGoalId, val);
+    setEditingGoalId(null);
+  };
+
   const stats = useMemo(() => {
     const dailyCompleted: Record<number, number>   = {};
     const dailyIncomplete: Record<number, number>  = {};
@@ -146,6 +190,10 @@ export default function HabitTracker() {
     for (let d = 1; d <= daysInMonth; d++) { if (logs[habitId]?.[d]) c++; }
     return c;
   };
+
+  // Effective goal for a habit — falls back to daysInMonth if not set
+  const effectiveGoal = (habit: { goal: number }) =>
+    habit.goal > 0 ? habit.goal : daysInMonth;
 
   if (loading) {
     return (
@@ -178,6 +226,9 @@ export default function HabitTracker() {
                 }
                 <button onClick={() => setShowSignOutDialog(true)} className="text-xxs bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground px-2 py-1 rounded">
                   Sign out
+                </button>
+                <button onClick={toggleDark} className="text-primary-foreground bg-primary-foreground/20 hover:bg-primary-foreground/30 px-2 py-1 rounded text-sm leading-none" aria-label="Toggle dark mode">
+                  {isDark ? '☀️' : '🌙'}
                 </button>
               </div>
             )}
@@ -217,6 +268,9 @@ export default function HabitTracker() {
                 <span className="text-xs opacity-80 text-tracker-header-foreground truncate max-w-[130px]">{user.user_metadata?.name || user.email}</span>
                 <button onClick={() => setShowSignOutDialog(true)} className="text-xs bg-primary-foreground/20 hover:bg-primary-foreground/30 text-primary-foreground px-3 py-1 rounded font-medium whitespace-nowrap">
                   Sign out
+                </button>
+                <button onClick={toggleDark} className="text-primary-foreground bg-primary-foreground/20 hover:bg-primary-foreground/30 px-2.5 py-1 rounded text-sm leading-none" aria-label="Toggle dark mode">
+                  {isDark ? '☀️' : '🌙'}
                 </button>
               </>
             )}
@@ -262,7 +316,7 @@ export default function HabitTracker() {
                 <th className="border border-border p-1 text-left font-semibold text-foreground bg-card">Habits</th>
                 {activeWeek.days.map(d => (
                   <th key={d} className="border border-border p-0.5 text-center font-medium"
-                    style={{ backgroundColor: WEEK_HSL_BG_LIGHT[mobileWeekIdx % WEEK_HSL_BG_LIGHT.length], color: '#1f2937' }}>
+                    style={{ backgroundColor: cellBg[mobileWeekIdx % cellBg.length], color: 'hsl(var(--foreground))' }}>
                     <div className="font-bold leading-tight">{d}</div>
                     <div className="text-[9px] text-gray-500 font-normal leading-tight">{dayNames[d - 1]}</div>
                   </th>
@@ -273,7 +327,7 @@ export default function HabitTracker() {
               {habits.map((habit, hi) => (
                 <tr key={habit.id} className={hi % 2 === 0 ? "bg-card" : "bg-secondary/30"}>
                   <td
-                    className="border border-border p-1 font-medium text-foreground overflow-hidden"
+                    className="border border-border p-1 font-medium text-foreground overflow-hidden group"
                     style={{ backgroundColor: hi % 2 === 0 ? 'hsl(var(--card))' : 'hsl(var(--secondary) / 0.3)' }}
                     onDoubleClick={() => startEditing(habit.id, habit.name)}
                   >
@@ -288,21 +342,28 @@ export default function HabitTracker() {
                         autoFocus
                       />
                     ) : (
-                      <span className="block truncate" style={{ fontSize: '11px' }} title="Double-click to edit">{hi + 1}. {habit.name}</span>
+                      <div className="flex items-center justify-between gap-0.5">
+                        <span className="block truncate" style={{ fontSize: '11px' }} title="Double-click to edit">{hi + 1}. {habit.name}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); deleteHabit(habit.id); }}
+                          className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity leading-none"
+                          style={{ fontSize: '10px' }}
+                          aria-label="Delete habit">×</button>
+                      </div>
                     )}
                   </td>
                   {activeWeek.days.map(d => {
                     const checked = logs[habit.id]?.[d] || false;
                     return (
                       <td key={d} className="border border-border p-0 text-center"
-                        style={{ backgroundColor: WEEK_HSL_BG_LIGHT[mobileWeekIdx % WEEK_HSL_BG_LIGHT.length] }}>
+                        style={{ backgroundColor: cellBg[mobileWeekIdx % cellBg.length] }}>
                         <button onClick={() => toggle(habit.id, d)}
                           className="w-full h-full flex items-center justify-center py-1.5"
                           aria-label={`${habit.name} day ${d}`}>
                           <span className="inline-flex w-4 h-4 rounded-sm items-center justify-center transition-all duration-150"
                             style={checked
-                              ? { backgroundColor: WEEK_HSL_COLORS[mobileWeekIdx % WEEK_HSL_COLORS.length], border: '1px solid rgba(0,0,0,0.12)' }
-                              : { backgroundColor: WEEK_HSL_BG_LIGHT[mobileWeekIdx % WEEK_HSL_BG_LIGHT.length], border: '1px solid rgba(15,23,42,0.36)' }
+                              ? { backgroundColor: WEEK_HSL_COLORS[mobileWeekIdx % WEEK_HSL_COLORS.length], border: '1px solid rgba(255,255,255,0.15)' }
+                              : { backgroundColor: cellBg[mobileWeekIdx % cellBg.length], border: checkEmptyBorder }
                             }>
                             {checked && (
                               <svg viewBox="0 0 12 12" className="w-3 h-3 text-white">
@@ -390,7 +451,7 @@ export default function HabitTracker() {
                 const weekIdx = weekRanges.findIndex(w => w.days.includes(d));
                 return (
                   <th key={d} className="border border-border p-0.5 text-center font-medium"
-                    style={{ backgroundColor: WEEK_HSL_BG_LIGHT[weekIdx % WEEK_HSL_BG_LIGHT.length], color: '#1f2937' }}>
+                    style={{ backgroundColor: cellBg[weekIdx % cellBg.length], color: 'hsl(var(--foreground))' }}>
                     <div>{d}</div>
                   </th>
                 );
@@ -402,7 +463,7 @@ export default function HabitTracker() {
                 const weekIdx = weekRanges.findIndex(w => w.days.includes(i + 1));
                 return (
                   <th key={i} className="border border-border p-0.5 text-center font-normal"
-                    style={{ backgroundColor: WEEK_HSL_BG_LIGHT[weekIdx % WEEK_HSL_BG_LIGHT.length], color: '#6b7280' }}>
+                    style={{ backgroundColor: cellBg[weekIdx % cellBg.length], color: 'hsl(var(--muted-foreground))' }}>
                     {dn}
                   </th>
                 );
@@ -415,7 +476,7 @@ export default function HabitTracker() {
             {habits.map((habit, hi) => (
               <tr key={habit.id} className={hi % 2 === 0 ? "bg-card" : "bg-secondary/30"}>
                 <td
-                  className="sticky left-0 z-10 border border-border p-1.5 font-medium text-foreground whitespace-nowrap cursor-pointer text-xs"
+                  className="sticky left-0 z-10 border border-border p-1.5 font-medium text-foreground whitespace-nowrap cursor-pointer text-xs group"
                   style={{ backgroundColor: hi % 2 === 0 ? 'hsl(var(--card))' : 'hsl(var(--secondary) / 0.3)' }}
                   onDoubleClick={() => startEditing(habit.id, habit.name)}
                 >
@@ -429,7 +490,13 @@ export default function HabitTracker() {
                       autoFocus
                     />
                   ) : (
-                    <span title="Double-click to edit">{hi + 1}. {habit.name}</span>
+                    <div className="flex items-center justify-between gap-1">
+                      <span title="Double-click to edit">{hi + 1}. {habit.name}</span>
+                      <button
+                        onClick={e => { e.stopPropagation(); deleteHabit(habit.id); }}
+                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity text-sm leading-none px-0.5"
+                        aria-label="Delete habit">×</button>
+                    </div>
                   )}
                 </td>
                 {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
@@ -437,14 +504,14 @@ export default function HabitTracker() {
                   const weekIdx  = weekRanges.findIndex(w => w.days.includes(d));
                   return (
                     <td key={d} className="border border-border p-0 text-center"
-                      style={{ backgroundColor: WEEK_HSL_BG_LIGHT[weekIdx % WEEK_HSL_BG_LIGHT.length] }}>
+                      style={{ backgroundColor: cellBg[weekIdx % cellBg.length] }}>
                       <button onClick={() => toggle(habit.id, d)}
                         className="w-full h-full flex items-center justify-center p-0.5 transition-colors duration-100"
                         aria-label={`${habit.name} day ${d}`}>
                         <span className="inline-flex w-3.5 h-3.5 rounded-sm items-center justify-center transition-all duration-150"
                           style={checked
-                            ? { backgroundColor: WEEK_HSL_COLORS[weekIdx % WEEK_HSL_COLORS.length], border: '1px solid rgba(0,0,0,0.12)', boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.08)' }
-                            : { backgroundColor: WEEK_HSL_BG_LIGHT[weekIdx % WEEK_HSL_BG_LIGHT.length], border: '1px solid rgba(15,23,42,0.36)' }
+                            ? { backgroundColor: WEEK_HSL_COLORS[weekIdx % WEEK_HSL_COLORS.length], border: '1px solid rgba(255,255,255,0.15)' }
+                            : { backgroundColor: cellBg[weekIdx % cellBg.length], border: checkEmptyBorder }
                           }>
                           {checked && (
                             <svg viewBox="0 0 12 12" className="w-3 h-3 text-white">
@@ -456,10 +523,26 @@ export default function HabitTracker() {
                     </td>
                   );
                 })}
-                <td className="border border-border p-1 text-center font-medium text-foreground">{daysInMonth}</td>
+                <td className="border border-border p-1 text-center font-medium text-foreground cursor-pointer select-none"
+                  onClick={() => startEditingGoal(habit.id, habit.goal)}
+                  title="Click to edit goal">
+                  {editingGoalId === habit.id ? (
+                    <input
+                      className="w-10 bg-transparent border-b border-primary outline-none text-center text-xs text-foreground"
+                      value={editGoalValue}
+                      onChange={e => setEditGoalValue(e.target.value)}
+                      onBlur={saveGoal}
+                      onKeyDown={e => { if (e.key === 'Enter') saveGoal(); if (e.key === 'Escape') setEditingGoalId(null); }}
+                      autoFocus
+                    />
+                  ) : (
+                    <span>{effectiveGoal(habit)}</span>
+                  )}
+                </td>
                 {(() => {
                   const completed = habitProgress(habit.id);
-                  const pct   = daysInMonth > 0 ? (completed / daysInMonth) * 100 : 0;
+                  const goal = effectiveGoal(habit);
+                  const pct   = goal > 0 ? Math.min((completed / goal) * 100, 100) : 0;
                   const color = WEEK_HSL_COLORS[hi % WEEK_HSL_COLORS.length];
                   return (
                     <td className="border border-border p-1 text-center font-medium text-foreground">
@@ -558,7 +641,7 @@ export default function HabitTracker() {
             const pct       = total > 0 ? (completed / total) * 100 : 0;
             return (
               <div key={wi} className="flex flex-col items-center gap-3">
-                <WeeklyDonut percentage={pct} color={WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length]} label={w.label} />
+                <WeeklyDonut percentage={pct} color={WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length]} label={w.label} isDark={isDark} />
                 <div className="text-xs text-muted-foreground text-center font-medium">{w.dateRange}</div>
               </div>
             );
@@ -618,15 +701,16 @@ function MiniBar({ percentage, color }: { percentage: number; color: string }) {
   );
 }
 
-function WeeklyDonut({ percentage, color, label }: { percentage: number; color: string; label?: string }) {
+function WeeklyDonut({ percentage, color, label, isDark }: { percentage: number; color: string; label?: string; isDark?: boolean }) {
   const size = 100, stroke = 12, radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (percentage / 100) * circumference;
+  const trackColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
   return (
     <div style={{ width: size, height: size, flexShrink: 0 }} className="relative flex items-center justify-center">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block' }}>
         <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-          <circle cx={size/2} cy={size/2} r={radius} stroke="#e2e8f0" strokeWidth={stroke} fill="transparent" />
+          <circle cx={size/2} cy={size/2} r={radius} stroke={trackColor} strokeWidth={stroke} fill="transparent" />
           <circle cx={size/2} cy={size/2} r={radius} stroke={color} strokeWidth={stroke} strokeLinecap="round"
             fill="transparent" strokeDasharray={circumference} strokeDashoffset={offset}
             style={{ transition: 'stroke-dashoffset 0.6s ease' }} />
