@@ -12,6 +12,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'implicit',
+    // pkce is more robust than implicit for production — avoids token-in-URL issues
+    flowType: 'pkce',
+    // unique storageKey prevents Web Lock collisions across multiple tabs
+    storageKey: 'app-auth-token',
   },
 })

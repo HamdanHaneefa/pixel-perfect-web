@@ -92,6 +92,14 @@ export default function HabitTracker() {
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [editGoalValue, setEditGoalValue] = useState("");
 
+  // Keyboard navigation: [habitIndex, dayIndex (0-based)]
+  const [focusedCell, setFocusedCell] = useState<[number, number] | null>(null);
+  const focusedCellRef = useRef<[number, number] | null>(null);
+  const gridRef = useRef<HTMLTableSectionElement | null>(null);
+
+  // Keep ref in sync so the keydown listener always has latest value
+  useEffect(() => { focusedCellRef.current = focusedCell; }, [focusedCell]);
+
   // Mobile swipe state
   const [mobileWeekIdx, setMobileWeekIdx] = useState(0);
   const touchStartX = useRef<number | null>(null);
@@ -194,6 +202,43 @@ export default function HabitTracker() {
   // Effective goal for a habit — falls back to daysInMonth if not set
   const effectiveGoal = (habit: { goal: number }) =>
     habit.goal > 0 ? habit.goal : daysInMonth;
+
+  // Global keydown listener — intercepts arrow keys to prevent page scroll
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const cell = focusedCellRef.current;
+      if (!cell) return;
+      // Don't hijack when user is typing in an input
+      if (document.activeElement?.tagName === 'INPUT') return;
+
+      const [hi, di] = cell;
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const next: [number, number] = [hi, Math.min(di + 1, daysInMonth - 1)];
+        setFocusedCell(next);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const next: [number, number] = [hi, Math.max(di - 1, 0)];
+        setFocusedCell(next);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next: [number, number] = [Math.min(hi + 1, habits.length - 1), di];
+        setFocusedCell(next);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const next: [number, number] = [Math.max(hi - 1, 0), di];
+        setFocusedCell(next);
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const habit = habits[hi];
+        if (habit) toggle(habit.id, di + 1);
+      } else if (e.key === 'Escape') {
+        setFocusedCell(null);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [habits, daysInMonth, toggle]);
 
   if (loading) {
     return (
@@ -437,8 +482,8 @@ export default function HabitTracker() {
             <tr>
               <th className="sticky left-0 z-10 bg-card border border-border p-1 min-w-[140px]"></th>
               {weekRanges.map((w, wi) => (
-                <th key={w.label} colSpan={w.days.length} className="border border-border p-1.5 text-center font-semibold text-xs uppercase tracking-wider"
-                  style={{ backgroundColor: WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length], color: '#fff' }}>
+                <th key={w.label} colSpan={w.days.length} className="border border-border p-1.5 text-center font-semibold text-xs uppercase tracking-wider overflow-hidden"
+                  style={{ backgroundColor: WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length], color: '#fff', minWidth: `${w.days.length * 28}px` }}>
                   {w.label}
                 </th>
               ))}
@@ -472,7 +517,7 @@ export default function HabitTracker() {
               <th className="bg-card border border-border p-1"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={gridRef}>
             {habits.map((habit, hi) => (
               <tr key={habit.id} className={hi % 2 === 0 ? "bg-card" : "bg-secondary/30"}>
                 <td
@@ -502,16 +547,22 @@ export default function HabitTracker() {
                 {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
                   const checked  = logs[habit.id]?.[d] || false;
                   const weekIdx  = weekRanges.findIndex(w => w.days.includes(d));
+                  const isFocused = focusedCell?.[0] === hi && focusedCell?.[1] === d - 1;
                   return (
                     <td key={d} className="border border-border p-0 text-center"
                       style={{ backgroundColor: cellBg[weekIdx % cellBg.length] }}>
-                      <button onClick={() => toggle(habit.id, d)}
-                        className="w-full h-full flex items-center justify-center p-0.5 transition-colors duration-100"
-                        aria-label={`${habit.name} day ${d}`}>
+                      <button
+                        ref={el => { if (isFocused && el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }}
+                        onClick={() => { toggle(habit.id, d); setFocusedCell([hi, d - 1]); }}
+                        onFocus={() => setFocusedCell([hi, d - 1])}
+                        onMouseDown={() => setFocusedCell([hi, d - 1])}
+                        className="w-full h-full flex items-center justify-center p-0.5 transition-colors duration-100 focus:outline-none"
+                        aria-label={`${habit.name} day ${d}`}
+                        tabIndex={isFocused ? 0 : -1}>
                         <span className="inline-flex w-3.5 h-3.5 rounded-sm items-center justify-center transition-all duration-150"
                           style={checked
-                            ? { backgroundColor: WEEK_HSL_COLORS[weekIdx % WEEK_HSL_COLORS.length], border: '1px solid rgba(255,255,255,0.15)' }
-                            : { backgroundColor: cellBg[weekIdx % cellBg.length], border: checkEmptyBorder }
+                            ? { backgroundColor: WEEK_HSL_COLORS[weekIdx % WEEK_HSL_COLORS.length], border: '1px solid rgba(255,255,255,0.15)', outline: isFocused ? '2px solid white' : 'none', outlineOffset: '1px' }
+                            : { backgroundColor: cellBg[weekIdx % cellBg.length], border: checkEmptyBorder, outline: isFocused ? `2px solid ${WEEK_HSL_COLORS[weekIdx % WEEK_HSL_COLORS.length]}` : 'none', outlineOffset: '1px' }
                           }>
                           {checked && (
                             <svg viewBox="0 0 12 12" className="w-3 h-3 text-white">
