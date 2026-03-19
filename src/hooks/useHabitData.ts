@@ -30,10 +30,30 @@ export function useHabitData(year: number, month: number) {
   const [logs, setLogs] = useState<LogMap>({})
   const [loading, setLoading] = useState(true)
 
-  // Pending writes: key = "habitId:day", value = debounce timer + final value
-  const pendingWrites = useRef<Map<string, { timer: ReturnType<typeof setTimeout>; value: boolean }>>(new Map())
-  // Flag to suppress realtime re-fetch when we triggered the change ourselves
+  // Write queue: key = "habitId:day" -> final boolean value
+  // A single shared flush timer batches ALL pending cell changes into one upsert
+  const writeQueue = useRef<Map<string, { habitId: string; day: number; value: boolean }>>(new Map())
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const suppressRealtimeRef = useRef(false)
+
+  const flushWrites = useCallback(async () => {
+    if (!user || writeQueue.current.size === 0) return
+    const batch = Array.from(writeQueue.current.values())
+    writeQueue.current.clear()
+    suppressRealtimeRef.current = true
+    await supabase.from('habit_logs').upsert(
+      batch.map(({ habitId, day, value }) => ({
+        user_id: user.id,
+        habit_id: habitId,
+        year,
+        month,
+        day,
+        completed: value,
+      })),
+      { onConflict: 'habit_id,year,month,day' }
+    )
+    setTimeout(() => { suppressRealtimeRef.current = false }, 1000)
+  }, [user, year, month])
 
   // ── Fetch habits ──────────────────────────────────────────────────────────
   const fetchHabits = useCallback(async () => {
@@ -123,44 +143,31 @@ export function useHabitData(year: number, month: number) {
     return () => { supabase.removeChannel(channel) }
   }, [user, year, month, fetchLogs])
 
-  // ── Toggle a checkbox — optimistic + debounced DB write ──────────────────
+  // ── Toggle a checkbox — instant optimistic update + batched DB flush ─────
   const toggle = useCallback((habitId: string, day: number) => {
     if (!user) return
 
-    const key = `${habitId}:${day}`
-
-    // Compute the new value based on current optimistic state
+    // Update UI instantly using functional update to always read latest state
     setLogs(prev => {
       const current = prev[habitId]?.[day] ?? false
       const next = !current
 
-      // Cancel any pending write for this cell and schedule a new one
-      const existing = pendingWrites.current.get(key)
-      if (existing) clearTimeout(existing.timer)
+      // Queue this write — overwrites any previous pending value for same cell
+      writeQueue.current.set(`${habitId}:${day}`, { habitId, day, value: next })
 
-      const timer = setTimeout(async () => {
-        pendingWrites.current.delete(key)
-        suppressRealtimeRef.current = true
-        await supabase.from('habit_logs').upsert({
-          user_id: user.id,
-          habit_id: habitId,
-          year,
-          month,
-          day,
-          completed: next,
-        }, { onConflict: 'habit_id,year,month,day' })
-        // Allow realtime again after a short buffer
-        setTimeout(() => { suppressRealtimeRef.current = false }, 1000)
-      }, 300)
-
-      pendingWrites.current.set(key, { timer, value: next })
+      // Reset the shared flush timer — all queued writes go out together
+      if (flushTimer.current) clearTimeout(flushTimer.current)
+      flushTimer.current = setTimeout(() => {
+        flushTimer.current = null
+        flushWrites()
+      }, 400)
 
       return {
         ...prev,
         [habitId]: { ...prev[habitId], [day]: next },
       }
     })
-  }, [user, year, month])
+  }, [user, flushWrites])
 
   // ── Add a habit ───────────────────────────────────────────────────────────
   const addHabit = useCallback(async (name: string) => {
