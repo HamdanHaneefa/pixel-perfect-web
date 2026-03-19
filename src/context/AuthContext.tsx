@@ -36,6 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPaid, setIsPaid] = useState(false)
   // Prevent duplicate profile fetches when auth state fires multiple times rapidly
   const profileFetchRef = useRef<string | null>(null)
+  // Tracks whether profile has been resolved — keeps loading=true until both auth + profile done
+  const [profileResolved, setProfileResolved] = useState(false)
 
   const fetchProfile = async (userId: string) => {
     if (profileFetchRef.current === userId) return
@@ -56,10 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setIsPaid(data.is_paid ?? false)
     } catch {
-      // Non-fatal — user stays logged in, just treat as free tier
       setIsPaid(false)
     } finally {
       profileFetchRef.current = null
+      setProfileResolved(true)
     }
   }
 
@@ -67,23 +69,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      setLoading(false)
-    }).catch(() => setLoading(false))
+      if (session?.user) {
+        fetchProfile(session.user.id)
+        // loading stays true until fetchProfile sets profileResolved
+      } else {
+        setProfileResolved(true)
+        setLoading(false)
+      }
+    }).catch(() => { setProfileResolved(true); setLoading(false) })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // TOKEN_REFRESHED fires frequently in multi-tab — skip redundant profile fetches
       if (event === 'TOKEN_REFRESHED' && session?.user.id === user?.id) return
 
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
-      else { setIsPaid(false); profileFetchRef.current = null }
-      setLoading(false)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else {
+        setIsPaid(false)
+        profileFetchRef.current = null
+        setProfileResolved(true)
+        setLoading(false)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // Only mark loading done once profile is also resolved — prevents Upgrade page flash
+  useEffect(() => {
+    if (profileResolved) setLoading(false)
+  }, [profileResolved])
 
   const signInWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
