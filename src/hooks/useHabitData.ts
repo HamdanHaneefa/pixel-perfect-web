@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 
@@ -29,6 +29,11 @@ export function useHabitData(year: number, month: number) {
   const [habits, setHabits] = useState<Habit[]>([])
   const [logs, setLogs] = useState<LogMap>({})
   const [loading, setLoading] = useState(true)
+
+  // Pending writes: key = "habitId:day", value = debounce timer + final value
+  const pendingWrites = useRef<Map<string, { timer: ReturnType<typeof setTimeout>; value: boolean }>>(new Map())
+  // Flag to suppress realtime re-fetch when we triggered the change ourselves
+  const suppressRealtimeRef = useRef(false)
 
   // ── Fetch habits ──────────────────────────────────────────────────────────
   const fetchHabits = useCallback(async () => {
@@ -99,7 +104,7 @@ export function useHabitData(year: number, month: number) {
     return () => { supabase.removeChannel(channel) }
   }, [user, fetchHabits])
 
-  // ── Realtime: habit_logs changes ──────────────────────────────────────────
+  // ── Realtime: habit_logs changes — skip if we triggered it ───────────────
   useEffect(() => {
     if (!user) return
     const channel = supabase
@@ -109,28 +114,53 @@ export function useHabitData(year: number, month: number) {
         schema: 'public',
         table: 'habit_logs',
         filter: `user_id=eq.${user.id}`,
-      }, () => fetchLogs())
+      }, () => {
+        // If we triggered this change ourselves, skip the re-fetch
+        if (suppressRealtimeRef.current) return
+        fetchLogs()
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [user, year, month, fetchLogs])
 
-  // ── Toggle a checkbox ─────────────────────────────────────────────────────
-  const toggle = useCallback(async (habitId: string, day: number) => {
+  // ── Toggle a checkbox — optimistic + debounced DB write ──────────────────
+  const toggle = useCallback((habitId: string, day: number) => {
     if (!user) return
-    const current = logs[habitId]?.[day] ?? false
-    setLogs(prev => ({
-      ...prev,
-      [habitId]: { ...prev[habitId], [day]: !current },
-    }))
-    await supabase.from('habit_logs').upsert({
-      user_id: user.id,
-      habit_id: habitId,
-      year,
-      month,
-      day,
-      completed: !current,
-    }, { onConflict: 'habit_id,year,month,day' })
-  }, [user, logs, year, month])
+
+    const key = `${habitId}:${day}`
+
+    // Compute the new value based on current optimistic state
+    setLogs(prev => {
+      const current = prev[habitId]?.[day] ?? false
+      const next = !current
+
+      // Cancel any pending write for this cell and schedule a new one
+      const existing = pendingWrites.current.get(key)
+      if (existing) clearTimeout(existing.timer)
+
+      const timer = setTimeout(async () => {
+        pendingWrites.current.delete(key)
+        suppressRealtimeRef.current = true
+        await supabase.from('habit_logs').upsert({
+          user_id: user.id,
+          habit_id: habitId,
+          year,
+          month,
+          day,
+          completed: next,
+        }, { onConflict: 'habit_id,year,month,day' })
+        // Allow realtime again after a short buffer
+        setTimeout(() => { suppressRealtimeRef.current = false }, 1000)
+      }, 300)
+
+      pendingWrites.current.set(key, { timer, value: next })
+
+      return {
+        ...prev,
+        [habitId]: { ...prev[habitId], [day]: next },
+      }
+    })
+  }, [user, year, month])
 
   // ── Add a habit ───────────────────────────────────────────────────────────
   const addHabit = useCallback(async (name: string) => {
