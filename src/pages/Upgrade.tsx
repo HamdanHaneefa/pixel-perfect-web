@@ -1,80 +1,89 @@
+import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { CheckCircle2, Lock } from 'lucide-react'
 
-const LOGO_URL = 'https://play-lh.googleusercontent.com/6GoMgqNIG0997uH91CHQ9H6cTH276ts2zEChCVIHonrF0m800CRowJc15XEhH1XeVng'
+const STORE_URL = 'https://store.elamai.in/buy?s=1&qty%5Bw9Ko3%5D=1&cart_links%5B%5D=w9Ko3'
 
 const FEATURES = [
-  { text: 'Track unlimited habits' },
-  { text: 'Syncs across all your devices' },
-  { text: 'Realtime updates' },
-  { text: 'Your data stored securely' },
+  'Daily, weekly & monthly habit views',
+  'Fully customisable — your habits, your way',
+  'Real-time progress tracking',
+  'Works on any device, any browser',
+  'All future updates included',
 ]
 
 export default function Upgrade() {
   const { user, signOut } = useAuth()
+  const [signingOut, setSigningOut] = useState(false)
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    // Optimistic — navigate away immediately, supabase cleans up in background
+    try { await signOut() } catch { /* ignore */ }
+  }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{
-        background: 'linear-gradient(135deg, hsl(221,83%,18%) 0%, hsl(221,83%,38%) 50%, hsl(271,81%,40%) 100%)',
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-    >
-      <div className="w-full max-w-sm">
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          {/* Top accent bar */}
-          <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, hsl(221,83%,53%), hsl(271,81%,56%), hsl(0,84%,60%))' }} />
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-4">
 
-          <div className="px-8 py-10 flex flex-col items-center gap-6">
-            {/* Logo */}
-            <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-lg ring-4 ring-blue-100">
-              <img src={LOGO_URL} alt="Habit Tracker" className="w-full h-full object-cover" />
-            </div>
+      {/* Brand */}
+      <div className="mb-8 text-center">
+        <span className="text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
+          trackly
+          <span className="inline-flex items-center justify-center w-7 h-7 bg-red-600 rounded text-white text-sm font-black">T</span>
+        </span>
+        <p className="text-gray-500 text-xs tracking-widest uppercase mt-1">progress.</p>
+      </div>
 
-            {/* Title */}
-            <div className="text-center space-y-1">
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Access Required</h1>
-              <p className="text-sm text-gray-500">Get lifetime access to your personal habit tracker.</p>
-            </div>
+      {/* Card */}
+      <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-8 flex flex-col gap-6">
 
-            {/* Features */}
-            <div className="w-full rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100">
-              {FEATURES.map((f, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3">
-                  <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: 'hsl(221,83%,53%)' }}>
-                    <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <span className="text-sm text-gray-700 font-medium">{f.text}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* CTA button */}
-            <button
-              disabled
-              className="w-full py-3 rounded-xl font-semibold text-sm text-white cursor-not-allowed"
-              style={{ background: 'linear-gradient(90deg, hsl(221,83%,53%), hsl(271,81%,56%))', opacity: 0.7 }}
-            >
-              Buy Access — Coming Soon
-            </button>
-
-            {/* User info */}
-            <div className="text-center space-y-2">
-              <p className="text-xs text-gray-400">Signed in as <span className="text-gray-600 font-medium">{user?.email}</span></p>
-              <button
-                onClick={signOut}
-                className="text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
+        <div className="flex flex-col items-center gap-2 text-center">
+          <div className="w-10 h-10 rounded-xl bg-gray-800 flex items-center justify-center mb-1">
+            <Lock className="h-5 w-5 text-gray-400" />
           </div>
+          <h1 className="text-xl font-bold text-white">Access Required</h1>
+          <p className="text-gray-400 text-sm leading-relaxed">
+            Purchase Trackly to unlock your personal habit tracker.
+          </p>
         </div>
 
-        <p className="text-center text-white/50 text-xs mt-6">Habit Tracker · {new Date().getFullYear()}</p>
+        {/* Features */}
+        <div className="flex flex-col gap-2.5">
+          {FEATURES.map((f) => (
+            <div key={f} className="flex items-center gap-3">
+              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+              <span className="text-sm text-gray-300">{f}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="h-px bg-gray-800" />
+
+        {/* CTA */}
+        <a
+          href={STORE_URL}
+          className="block w-full py-3.5 bg-white text-gray-900 font-semibold text-sm rounded-xl text-center hover:bg-gray-100 active:scale-[0.98] transition-all"
+        >
+          Get Access — $13.00
+        </a>
+
+        {/* User + sign out */}
+        <div className="text-center space-y-2">
+          <p className="text-xs text-gray-600">
+            Signed in as <span className="text-gray-400 font-medium">{user?.email}</span>
+          </p>
+          <button
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="text-xs text-gray-500 hover:text-white transition-colors font-medium disabled:opacity-50"
+          >
+            {signingOut ? 'Signing out…' : 'Sign out'}
+          </button>
+        </div>
+
       </div>
+
+      <p className="text-gray-700 text-xs mt-8">Trackly · {new Date().getFullYear()}</p>
     </div>
   )
 }

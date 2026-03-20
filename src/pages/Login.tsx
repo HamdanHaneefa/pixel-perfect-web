@@ -2,8 +2,6 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 
-const LOGO_URL = 'https://play-lh.googleusercontent.com/6GoMgqNIG0997uH91CHQ9H6cTH276ts2zEChCVIHonrF0m800CRowJc15XEhH1XeVng'
-
 export default function Login() {
   const { signInWithGoogle, user, loading } = useAuth()
   const navigate = useNavigate()
@@ -14,67 +12,51 @@ export default function Login() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-muted-foreground text-sm">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-950">
+        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4"
-      style={{
-        background: 'linear-gradient(135deg, hsl(221,83%,18%) 0%, hsl(221,83%,38%) 50%, hsl(271,81%,40%) 100%)',
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-    >
-      <div className="w-full max-w-sm">
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          {/* Top accent bar */}
-          <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, hsl(221,83%,53%), hsl(271,81%,56%), hsl(0,84%,60%))' }} />
+    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-4">
 
-          <div className="px-8 py-10 flex flex-col items-center gap-6">
-            {/* Logo */}
-            <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-lg ring-4 ring-blue-100">
-              <img
-                src={LOGO_URL}
-                alt="Habit Tracker"
-                className="w-full h-full object-cover"
-              />
-            </div>
+      {/* Logo / Brand */}
+      <div className="mb-8 text-center">
+        <span className="text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
+          trackly
+          <span className="inline-flex items-center justify-center w-7 h-7 bg-red-600 rounded text-white text-sm font-black">T</span>
+        </span>
+        <p className="text-gray-500 text-xs tracking-widest uppercase mt-1">progress.</p>
+      </div>
 
-            {/* Title */}
-            <div className="text-center space-y-1">
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Habit Tracker</h1>
-              <p className="text-sm text-gray-500">Build consistency. Track your daily habits.</p>
-            </div>
+      {/* Card */}
+      <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-8 flex flex-col gap-6">
 
-            {/* Divider */}
-            <div className="w-full flex items-center gap-3">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-xs text-gray-400 uppercase tracking-wider">Sign in</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
-
-            {/* Google button */}
-            <button
-              onClick={signInWithGoogle}
-              className="flex items-center gap-3 w-full justify-center bg-white text-gray-700 border border-gray-300 rounded-xl px-4 py-3 text-sm font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
-            >
-              <GoogleIcon />
-              Continue with Google
-            </button>
-
-            <p className="text-xs text-gray-400 text-center leading-relaxed">
-              By signing in you agree to track your habits<br />and build better routines.
-            </p>
-          </div>
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-white mb-1">Sign in to Trackly</h1>
+          <p className="text-gray-400 text-sm leading-relaxed">
+            Use the same email you used at checkout
+          </p>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-white/50 text-xs mt-6">Habit Tracker · {new Date().getFullYear()}</p>
+        <button
+          onClick={signInWithGoogle}
+          className="flex items-center justify-center gap-3 w-full bg-white text-gray-900 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold hover:bg-gray-50 active:scale-[0.98] transition-all shadow-sm"
+        >
+          <GoogleIcon />
+          Continue with Google
+        </button>
+
+        <div className="bg-amber-950/40 border border-amber-800/40 rounded-xl px-4 py-3">
+          <p className="text-amber-300 text-xs leading-relaxed text-center">
+            Sign in with the Google account that matches the email you used at checkout.
+          </p>
+        </div>
+
       </div>
+
+      <p className="text-gray-700 text-xs mt-8">Trackly · {new Date().getFullYear()}</p>
     </div>
   )
 }
