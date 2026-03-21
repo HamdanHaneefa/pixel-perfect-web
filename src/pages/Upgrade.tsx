@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { CheckCircle2, Lock } from 'lucide-react'
 
-const STORE_URL = 'https://store.elamai.in/buy?s=1&qty%5Bw9Ko3%5D=1&cart_links%5B%5D=w9Ko3'
+const STORE_URL = 'https://checkout.elamai.in/buy?s=1&qty%5Bw9Ko3%5D=1&cart_links%5B%5D=w9Ko3'
 
 const FEATURES = [
   'Daily, weekly & monthly habit views',

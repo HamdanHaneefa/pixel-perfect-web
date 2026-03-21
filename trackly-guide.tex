@@ -1,0 +1,470 @@
+\documentclass[10pt, a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[top=14mm, bottom=14mm, left=14mm, right=14mm]{geometry}
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{microtype}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{setspace}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable}
+\usepackage{multicol}
+\usepackage{pagecolor}
+
+% ── Font ──────────────────────────────────────────────────────────────────────
+\setmainfont{TeX Gyre Heros}
+
+% ── Colours ───────────────────────────────────────────────────────────────────
+\definecolor{pagebg}{HTML}{FFFFFF}       % clean white
+\definecolor{cover}{HTML}{111111}        % near-black cover
+\definecolor{ink}{HTML}{111111}          % body text
+\definecolor{accent}{HTML}{DC2626}       % red
+\definecolor{muted}{HTML}{6B7280}        % neutral gray
+\definecolor{subtle}{HTML}{F3F4F6}       % light card bg
+\definecolor{border}{HTML}{E5E7EB}       % dividers
+\definecolor{amber}{HTML}{92400E}        % amber text
+\definecolor{amberbg}{HTML}{FFFBEB}      % amber bg
+\definecolor{success}{HTML}{16A34A}      % green
+\definecolor{stepbg}{HTML}{1F2937}       % step circle
+
+% ── Page background ───────────────────────────────────────────────────────────
+\pagecolor{pagebg}
+
+% ── Hyperlinks ────────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true, urlcolor=accent, linkcolor=ink,
+  pdftitle={Trackly - Getting Started},
+  pdfauthor={Trackly},
+}
+
+% ── Section headings ──────────────────────────────────────────────────────────
+\titleformat{\section}
+  {\fontsize{11}{14}\selectfont\bfseries\color{ink}}{}{}{}
+  [\vspace{1pt}\textcolor{border}{\hrule height 0.6pt}\vspace{2pt}]
+\titlespacing{\section}{0pt}{10pt}{4pt}
+
+\titleformat{\subsection}
+  {\fontsize{9}{12}\selectfont\bfseries\color{ink}}{}{}{}
+\titlespacing{\subsection}{0pt}{6pt}{2pt}
+
+% ── Header / Footer ───────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[L]{%
+  \fontsize{8}{10}\selectfont\color{muted}%
+  \textbf{\textcolor{ink}{trackly}}\,%
+  \begin{tikzpicture}[baseline=1pt]
+    \fill[accent] (0,0) rectangle (0.26,0.26);
+    \node[white, font=\bfseries\fontsize{5}{5}\selectfont] at (0.13,0.13) {T};
+  \end{tikzpicture}\,%
+  Getting Started Guide%
+}
+\fancyhead[R]{\fontsize{8}{10}\selectfont\color{muted}\thepage}
+
+% ── Boxes ─────────────────────────────────────────────────────────────────────
+\newtcolorbox{noticebox}{
+  enhanced, breakable,
+  colback=amberbg, colframe=amber,
+  arc=4pt, boxrule=0.5pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  fontupper=\fontsize{8.5}{11}\selectfont,
+}
+
+\newtcolorbox{darkbox}{
+  enhanced,
+  colback=stepbg, colframe=stepbg,
+  arc=6pt, boxrule=0pt,
+  left=12pt, right=12pt, top=10pt, bottom=10pt,
+}
+
+\newtcolorbox{lightbox}{
+  enhanced, breakable,
+  colback=subtle, colframe=border,
+  arc=4pt, boxrule=0.5pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+}
+
+% ── Helpers ───────────────────────────────────────────────────────────────────
+\newcommand{\stepcirc}[1]{%
+  \begin{tikzpicture}[baseline=-1pt]
+    \fill[stepbg] (0,0) circle (7pt);
+    \node[white, font=\bfseries\fontsize{7}{7}\selectfont] at (0,0) {#1};
+  \end{tikzpicture}%
+}
+
+\newcommand{\feat}[2]{%
+  \noindent
+  \begin{tikzpicture}[baseline=-1pt]
+    \fill[success] (0,0) circle (4pt);
+    \node[white, font=\bfseries\fontsize{5}{5}\selectfont] at (0,0) {\checkmark};
+  \end{tikzpicture}%
+  \hspace{4pt}\textbf{#1}\enspace{\fontsize{8}{10}\selectfont\color{muted}#2}\\[3pt]%
+}
+
+\setstretch{1.2}
+\setlength{\parskip}{4pt}
+\setlength{\parindent}{0pt}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+% ══════════════════════════════════════════════════════════════════════════════
+
+% ── PAGE 1 — COVER ────────────────────────────────────────────────────────────
+\thispagestyle{empty}
+\newpagecolor{cover}
+
+\begin{center}
+
+  \vspace*{10mm}
+
+  % Thank you line
+  {\fontsize{9}{11}\selectfont\color{white!50} Thank you for purchasing Trackly}
+
+  \vspace{7mm}
+
+  % Brand
+  {\fontsize{44}{48}\selectfont\bfseries\color{white} trackly}%
+  \hspace{5pt}%
+  \begin{tikzpicture}[baseline=5pt]
+    \fill[accent] (0,0) rectangle (0.62,0.62);
+    \node[white, font=\bfseries\normalsize] at (0.31,0.31) {T};
+  \end{tikzpicture}
+
+  \vspace{3pt}
+  {\fontsize{7}{9}\selectfont\bfseries\color{white!30} PROGRESS.}
+
+  \vspace{8mm}
+
+  % Banner image
+  \includegraphics[width=0.88\textwidth, keepaspectratio]{banner.png}
+
+  \vspace{8mm}
+
+  {\fontsize{19}{23}\selectfont\bfseries\color{white} Getting Started Guide}\\[5pt]
+  {\fontsize{9.5}{12}\selectfont\color{white!55}
+    Everything you need to start tracking your habits today.}
+
+  \vspace{10mm}
+
+  % Access link box
+  \begin{tcolorbox}[
+    enhanced,
+    colback=white!8!cover, colframe=white!15!cover,
+    arc=6pt, boxrule=0.6pt,
+    width=0.5\textwidth,
+    halign=center,
+    left=8pt, right=8pt, top=8pt, bottom=8pt,
+  ]
+    {\fontsize{7.5}{10}\selectfont\color{white!45} Your tracker is live at}\\[5pt]
+    {\fontsize{12}{15}\selectfont\bfseries\color{white}
+      \href{https://trackly.elamai.in}{trackly.elamai.in}}
+  \end{tcolorbox}
+
+\end{center}
+
+\vspace*{\fill}
+\begin{center}
+  {\fontsize{7}{9}\selectfont\color{white!20}
+    \textcopyright\ \the\year\ Trackly.\enspace All rights reserved.}
+\end{center}
+
+\newpage
+\restorepagecolor
+
+% ── PAGE 2 — WELCOME + ACCESS ─────────────────────────────────────────────────
+
+\section{Welcome to Trackly}
+
+{\fontsize{9.5}{13}\selectfont
+Thank you for your purchase. You now have access to a fully customisable habit tracking web app --- no downloads, no installations. Open it in any browser and start immediately.}
+
+\vspace{5pt}
+
+\begin{noticebox}
+  \textbf{\textcolor{amber}{Important:}} Your account is linked to the email you used at checkout.
+  When signing in, select the Google account that matches that email exactly.
+  Using a different email will show an ``Access Required'' screen.
+\end{noticebox}
+
+\vspace{5pt}
+
+\begin{darkbox}
+  {\fontsize{7}{9}\selectfont\color{white!50} YOUR ACCESS LINK}\\[5pt]
+  {\fontsize{13}{16}\selectfont\bfseries\color{white}
+    \href{https://trackly.elamai.in}{https://trackly.elamai.in}}\\[4pt]
+  {\fontsize{8.5}{11}\selectfont\color{white!50}
+    Open in any browser on phone or desktop. No installation needed.}
+\end{darkbox}
+
+\vspace{6pt}
+
+\noindent
+\begin{tabularx}{\textwidth}{@{}XX@{}}
+  \begin{tcolorbox}[
+    enhanced, colback=subtle, colframe=border,
+    arc=5pt, boxrule=0.5pt, height=38mm,
+    valign=center, halign=center,
+    fontupper=\fontsize{8}{10}\selectfont\itshape\color{muted},
+  ]
+    {[} Login screen screenshot {]}
+  \end{tcolorbox}
+  &
+  \begin{tcolorbox}[
+    enhanced, colback=subtle, colframe=border,
+    arc=5pt, boxrule=0.5pt, height=38mm,
+    valign=center, halign=center,
+    fontupper=\fontsize{8}{10}\selectfont\itshape\color{muted},
+  ]
+    {[} Dashboard screenshot {]}
+  \end{tcolorbox}
+\end{tabularx}
+
+\vspace{8pt}
+
+\section{How to Get Started}
+
+\vspace{2pt}
+
+\noindent
+\begin{tabularx}{\textwidth}{@{}c@{\hspace{8pt}}X@{}}
+  \stepcirc{1} &
+  {\fontsize{9.5}{12}\selectfont
+    \textbf{Open the app} --- Go to
+    \href{https://trackly.elamai.in}{\textbf{trackly.elamai.in}}
+    in any browser.}\\[7pt]
+  \stepcirc{2} &
+  {\fontsize{9.5}{12}\selectfont
+    \textbf{Sign in with Google} --- Tap \textit{Continue with Google} and choose
+    the account matching your checkout email.}\\[7pt]
+  \stepcirc{3} &
+  {\fontsize{9.5}{12}\selectfont
+    \textbf{You're in} --- Your dashboard opens immediately. Set up your habits
+    and start tracking today.}\\
+\end{tabularx}
+
+\newpage
+
+% ── PAGE 3 — WHAT'S INSIDE ────────────────────────────────────────────────────
+
+\section{What's Inside Trackly}
+
+\noindent
+\begin{tabularx}{\textwidth}{@{}XX@{}}
+
+  \begin{minipage}[t]{\linewidth}
+    \subsection{Daily View}
+    {\fontsize{9}{12}\selectfont
+    Check off your habits every day. Clean, fast layout --- takes under 30 seconds.}
+    \vspace{4pt}
+    \begin{tcolorbox}[
+      enhanced, colback=subtle, colframe=border,
+      arc=5pt, boxrule=0.5pt, height=36mm,
+      valign=center, halign=center,
+      fontupper=\fontsize{8}{10}\selectfont\itshape\color{muted},
+    ]
+      {[} Daily view screenshot {]}
+    \end{tcolorbox}
+  \end{minipage}
+
+  &
+
+  \begin{minipage}[t]{\linewidth}
+    \subsection{Weekly View}
+    {\fontsize{9}{12}\selectfont
+    See your full week at a glance. Spot where you are consistent and where you need focus.}
+    \vspace{4pt}
+    \begin{tcolorbox}[
+      enhanced, colback=subtle, colframe=border,
+      arc=5pt, boxrule=0.5pt, height=36mm,
+      valign=center, halign=center,
+      fontupper=\fontsize{8}{10}\selectfont\itshape\color{muted},
+    ]
+      {[} Weekly view screenshot {]}
+    \end{tcolorbox}
+  \end{minipage}
+
+\end{tabularx}
+
+\vspace{8pt}
+
+\noindent
+\begin{tabularx}{\textwidth}{@{}XX@{}}
+
+  \begin{minipage}[t]{\linewidth}
+    \subsection{Monthly View}
+    {\fontsize{9}{12}\selectfont
+    Track streaks and patterns across the full month. One screen, everything visible.}
+    \vspace{4pt}
+    \begin{tcolorbox}[
+      enhanced, colback=subtle, colframe=border,
+      arc=5pt, boxrule=0.5pt, height=36mm,
+      valign=center, halign=center,
+      fontupper=\fontsize{8}{10}\selectfont\itshape\color{muted},
+    ]
+      {[} Monthly view screenshot {]}
+    \end{tcolorbox}
+  \end{minipage}
+
+  &
+
+  \begin{minipage}[t]{\linewidth}
+    \subsection{Progress Tracking}
+    {\fontsize{9}{12}\selectfont
+    Visual indicators update automatically as you check off habits. No manual calculations.}
+    \vspace{4pt}
+    \begin{tcolorbox}[
+      enhanced, colback=subtle, colframe=border,
+      arc=5pt, boxrule=0.5pt, height=36mm,
+      valign=center, halign=center,
+      fontupper=\fontsize{8}{10}\selectfont\itshape\color{muted},
+    ]
+      {[} Progress / streak screenshot {]}
+    \end{tcolorbox}
+  \end{minipage}
+
+\end{tabularx}
+
+\newpage
+
+% ── PAGE 4 — FEATURES + TIPS + FAQ ───────────────────────────────────────────
+
+\section{Features at a Glance}
+
+\vspace{2pt}
+
+\begin{multicols}{2}
+\feat{Fully customisable}{Add, rename or remove any habit anytime}
+\feat{Daily view}{Quick check-off, under 30 seconds}
+\feat{Weekly view}{Full week overview, spot gaps}
+\feat{Monthly view}{Streaks and long-term patterns}
+\feat{Real-time progress}{Visual indicators, no manual work}
+\feat{Any device}{Phone, tablet, desktop --- any browser}
+\feat{No installation}{Runs entirely in your browser}
+\feat{Future updates included}{Your access stays current automatically}
+\feat{Secure storage}{Data stored privately, never shared}
+\end{multicols}
+
+\vspace{6pt}
+
+\section{Tips for Staying Consistent}
+
+\vspace{2pt}
+
+\begin{enumerate}[leftmargin=*, itemsep=3pt, topsep=0pt,
+  label=\textbf{\textcolor{accent}{\arabic*.}}]
+  \item \textbf{Start with 3--5 habits.}
+    {\fontsize{8.5}{11}\selectfont\color{muted}
+    Too many at once makes it hard to stay consistent. Build the tracking habit first.}
+
+  \item \textbf{Check in at the same time daily.}
+    {\fontsize{8.5}{11}\selectfont\color{muted}
+    Attach it to an existing routine --- morning coffee, before bed, after lunch.}
+
+  \item \textbf{Don't break the chain.}
+    {\fontsize{8.5}{11}\selectfont\color{muted}
+    Once you see a streak in the monthly view, you won't want to break it. Use that.}
+
+  \item \textbf{Review weekly.}
+    {\fontsize{8.5}{11}\selectfont\color{muted}
+    Spend 2 minutes every Sunday in the weekly view. Plan the next week from there.}
+
+  \item \textbf{Be honest.}
+    {\fontsize{8.5}{11}\selectfont\color{muted}
+    Only check off habits you actually completed. Accurate data is the only useful data.}
+\end{enumerate}
+
+\vspace{6pt}
+
+\section{Frequently Asked Questions}
+
+\vspace{2pt}
+
+\noindent\textbf{I see ``Access Required'' after signing in.}\\
+{\fontsize{8.5}{11}\selectfont\color{muted}
+You signed in with the wrong Google account. Sign out and sign back in using the account that matches your checkout email.}
+
+\vspace{5pt}
+
+\noindent\textbf{Can I use Trackly on my phone?}\\
+{\fontsize{8.5}{11}\selectfont\color{muted}
+Yes. Open \href{https://trackly.elamai.in}{trackly.elamai.in} in Chrome or Safari on your phone. Fully optimised for mobile. You can also add it to your home screen.}
+
+\vspace{5pt}
+
+\noindent\textbf{Will I lose data if I clear my browser?}\\
+{\fontsize{8.5}{11}\selectfont\color{muted}
+No. Your data is stored securely in the cloud, linked to your account. Access it from any device at any time.}
+
+\vspace{5pt}
+
+\noindent\textbf{How do I add or remove habits?}\\
+{\fontsize{8.5}{11}\selectfont\color{muted}
+Inside the app, use the habit management section to add, rename, or remove habits. Changes take effect immediately.}
+
+\vspace{5pt}
+
+\noindent\textbf{Need help?}\\
+{\fontsize{8.5}{11}\selectfont\color{muted}
+Contact us at \href{https://store.elamai.in/contact}{store.elamai.in/contact} and we will get back to you.}
+
+\newpage
+
+% ── PAGE 5 — BACK COVER ───────────────────────────────────────────────────────
+\thispagestyle{empty}
+\newpagecolor{cover}
+
+\vspace*{\fill}
+
+\begin{center}
+
+  {\fontsize{38}{42}\selectfont\bfseries\color{white} trackly}%
+  \hspace{5pt}%
+  \begin{tikzpicture}[baseline=5pt]
+    \fill[accent] (0,0) rectangle (0.62,0.62);
+    \node[white, font=\bfseries\normalsize] at (0.31,0.31) {T};
+  \end{tikzpicture}
+
+  \vspace{4pt}
+  {\fontsize{7}{9}\selectfont\bfseries\color{white!30} PROGRESS.}
+
+  \vspace{13mm}
+
+  {\fontsize{13}{17}\selectfont\color{white!65} Build habits that actually stick.}
+
+  \vspace{11mm}
+
+  \begin{tcolorbox}[
+    enhanced,
+    colback=white!8!cover, colframe=white!15!cover,
+    arc=8pt, boxrule=0.6pt,
+    width=0.52\textwidth,
+    halign=center,
+    left=10pt, right=10pt, top=10pt, bottom=10pt,
+  ]
+    {\fontsize{8}{10}\selectfont\color{white!45} Open your tracker at}\\[5pt]
+    {\fontsize{13}{16}\selectfont\bfseries\color{white}
+      \href{https://trackly.elamai.in}{trackly.elamai.in}}
+  \end{tcolorbox}
+
+\end{center}
+
+\vspace*{\fill}
+
+\begin{center}
+  {\fontsize{7}{9}\selectfont\color{white!20}
+    \textcopyright\ \the\year\ Trackly.\enspace All rights reserved.
+    \enspace\textbullet\enspace
+    \href{https://store.elamai.in/contact}{Contact Support}
+  }
+\end{center}
+
+\end{document}
