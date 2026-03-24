@@ -147,6 +147,10 @@ export function useHabitData(year: number, month: number) {
   const toggle = useCallback((habitId: string, day: number) => {
     if (!user) return
 
+    // Suppress realtime immediately so incoming DB events don't overwrite
+    // the optimistic state while we're still debouncing / flushing
+    suppressRealtimeRef.current = true
+
     // Update UI instantly using functional update to always read latest state
     setLogs(prev => {
       const current = prev[habitId]?.[day] ?? false
