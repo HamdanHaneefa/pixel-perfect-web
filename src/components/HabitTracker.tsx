@@ -106,7 +106,7 @@ export default function HabitTracker() {
   const daysInMonth = monthInfo.days;
   const monthName   = monthInfo.name;
 
-  const { habits, logs, loading, toggle, addHabit, renameHabit, deleteHabit, updateGoal, getStreaks } =
+  const { habits, logs, loading, toggle, addHabit, renameHabit, deleteHabit, updateGoal, getStreaks, isFutureMonth } =
     useHabitData(YEAR, monthIdx);
 
   const handleFutureDayBlocked = useCallback(() => {
@@ -475,10 +475,12 @@ export default function HabitTracker() {
                   ) : (
                     <span className="text-xs font-medium text-foreground leading-tight">{hi + 1}. {habit.name}</span>
                   )}
-                  <button
-                    onClick={e => { e.stopPropagation(); deleteHabit(habit.id); }}
-                    className="flex-shrink-0 ml-2 text-muted-foreground hover:text-destructive transition-colors text-base leading-none"
-                    aria-label="Delete habit">×</button>
+                  {!isFutureMonth && (
+                    <button
+                      onClick={e => { e.stopPropagation(); deleteHabit(habit.id); }}
+                      className="flex-shrink-0 ml-2 text-muted-foreground hover:text-destructive transition-colors text-base leading-none"
+                      aria-label="Delete habit">×</button>
+                  )}
                 </div>
                 {/* Checkboxes row — full width, evenly spaced */}
                 <div className="flex gap-1.5">
@@ -508,8 +510,8 @@ export default function HabitTracker() {
             );
           })}
 
-          {/* Add habit */}
-          {showAddRow ? (
+          {/* Add habit — hidden for future months */}
+          {!isFutureMonth && (showAddRow ? (
             <div className="px-3 py-2 bg-card flex items-center gap-2">
               <input ref={addInputRef} value={newHabitName}
                 onChange={e => setNewHabitName(e.target.value)}
@@ -524,7 +526,7 @@ export default function HabitTracker() {
               className="w-full text-left px-3 py-2.5 text-xs text-primary hover:bg-primary/5 transition-colors flex items-center gap-1.5 bg-card">
               <span className="font-bold text-sm leading-none">+</span> Add Habit
             </button>
-          )}
+          ))}
 
           {/* Daily completion bars */}
           <div className="px-3 py-2 bg-secondary/30 border-b border-border">
@@ -626,10 +628,12 @@ export default function HabitTracker() {
                   ) : (
                     <div className="flex items-center justify-between gap-1">
                       <span title="Double-click to edit">{hi + 1}. {habit.name}</span>
+                      {!isFutureMonth && (
                       <button
                         onClick={e => { e.stopPropagation(); deleteHabit(habit.id); }}
                         className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity text-sm leading-none px-0.5"
                         aria-label="Delete habit">×</button>
+                      )}
                     </div>
                   )}
                 </td>
@@ -750,10 +754,18 @@ export default function HabitTracker() {
             ) : (
               <tr className="bg-card">
                 <td colSpan={daysInMonth + 4} className="sticky left-0 border border-border p-0">
+                  {!isFutureMonth && (
                   <button onClick={startAdd}
                     className="w-full text-left px-3 py-1.5 text-xs text-primary hover:bg-primary/5 transition-colors flex items-center gap-1">
                     <span className="font-bold text-sm leading-none">+</span> Add Habit
                   </button>
+                  )}
+                  {isFutureMonth && (
+                    <div className="px-3 py-1.5 text-xs text-muted-foreground flex items-center gap-1.5">
+                      <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5 7V5a3 3 0 016 0v2" strokeLinecap="round"/></svg>
+                      Unlocks when this month begins
+                    </div>
+                  )}
                 </td>
               </tr>
             )}

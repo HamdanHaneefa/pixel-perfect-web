@@ -66,25 +66,35 @@ export function useHabitData(year: number, month: number) {
   }, [user, year, month])
 
   // ── Seed habits for a new month ───────────────────────────────────────────
-  // Priority: copy from previous month → fallback to defaults
+  // Future months: always use default 10. Past/current: copy from previous month.
   const seedHabitsForMonth = useCallback(async () => {
     if (!user) return
 
-    // Try to get previous month's habits
-    const prevMonth = month === 0 ? 11 : month - 1
-    const prevYear = month === 0 ? year - 1 : year
+    const now = new Date()
+    const isFutureMonth =
+      year > now.getFullYear() ||
+      (year === now.getFullYear() && month > now.getMonth())
 
-    const { data: prevHabits } = await supabase
-      .from('habits')
-      .select('name, order, goal')
-      .eq('user_id', user.id)
-      .eq('year', prevYear)
-      .eq('month', prevMonth)
-      .order('order', { ascending: true })
+    let source: { name: string; order: number; goal: number }[]
 
-    const source = prevHabits && prevHabits.length > 0
-      ? prevHabits
-      : DEFAULT_HABITS.map((name, i) => ({ name, order: i, goal: 0 }))
+    if (isFutureMonth) {
+      // Future months always get the clean default 10
+      source = DEFAULT_HABITS.map((name, i) => ({ name, order: i, goal: 0 }))
+    } else {
+      // Past/current: try to copy from previous month
+      const prevMonth = month === 0 ? 11 : month - 1
+      const prevYear = month === 0 ? year - 1 : year
+      const { data: prevHabits } = await supabase
+        .from('habits')
+        .select('name, order, goal')
+        .eq('user_id', user.id)
+        .eq('year', prevYear)
+        .eq('month', prevMonth)
+        .order('order', { ascending: true })
+      source = prevHabits && prevHabits.length > 0
+        ? prevHabits
+        : DEFAULT_HABITS.map((name, i) => ({ name, order: i, goal: 0 }))
+    }
 
     await supabase.from('habits').insert(
       source.map((h, i) => ({
@@ -200,9 +210,12 @@ export function useHabitData(year: number, month: number) {
     })
   }, [user, year, month, flushWrites])
 
-  // ── Add habit — scoped to this month ─────────────────────────────────────
+  // ── Add habit — blocked for future months ────────────────────────────────
   const addHabit = useCallback(async (name: string) => {
     if (!user) return
+    const now = new Date()
+    const isFutureMonth = year > now.getFullYear() || (year === now.getFullYear() && month > now.getMonth())
+    if (isFutureMonth) return
     const nextOrder = habits.length > 0 ? Math.max(...habits.map(h => h.order)) + 1 : 0
     await supabase.from('habits').insert({ user_id: user.id, name, order: nextOrder, goal: 0, year, month })
   }, [user, habits, year, month])
@@ -211,10 +224,14 @@ export function useHabitData(year: number, month: number) {
     await supabase.from('habits').update({ name }).eq('id', id)
   }, [])
 
+  // ── Delete habit — blocked for future months ──────────────────────────────
   const deleteHabit = useCallback(async (id: string) => {
+    const now = new Date()
+    const isFutureMonth = year > now.getFullYear() || (year === now.getFullYear() && month > now.getMonth())
+    if (isFutureMonth) return
     setHabits(prev => prev.filter(h => h.id !== id))
     await supabase.from('habits').delete().eq('id', id)
-  }, [])
+  }, [year, month])
 
   const updateGoal = useCallback(async (id: string, goal: number) => {
     setHabits(prev => prev.map(h => h.id === id ? { ...h, goal } : h))
@@ -235,5 +252,8 @@ export function useHabitData(year: number, month: number) {
     return { current, best }
   }, [logs])
 
-  return { habits, logs, loading, toggle, addHabit, renameHabit, deleteHabit, updateGoal, getStreaks }
+  const now = new Date()
+  const isFutureMonth = year > now.getFullYear() || (year === now.getFullYear() && month > now.getMonth())
+
+  return { habits, logs, loading, toggle, addHabit, renameHabit, deleteHabit, updateGoal, getStreaks, isFutureMonth }
 }
