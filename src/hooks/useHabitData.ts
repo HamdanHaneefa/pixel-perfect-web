@@ -7,6 +7,8 @@ export interface Habit {
   name: string
   order: number
   goal: number
+  year: number
+  month: number
 }
 
 export type LogMap = Record<string, Record<number, boolean>>
@@ -30,57 +32,73 @@ export function useHabitData(year: number, month: number) {
   const [logs, setLogs] = useState<LogMap>({})
   const [loading, setLoading] = useState(true)
 
-  // Pending writes: keys that are in-flight to DB — realtime events for these are ignored
   const pendingKeys = useRef<Set<string>>(new Set())
   const writeQueue = useRef<Map<string, { habitId: string; day: number; value: boolean }>>(new Map())
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Stable ref to avoid stale closure in toggle
   const logsRef = useRef<LogMap>({})
-
-  // Keep logsRef in sync without causing re-renders
   useEffect(() => { logsRef.current = logs }, [logs])
 
   const flushWrites = useCallback(async () => {
     if (!user || writeQueue.current.size === 0) return
     const batch = Array.from(writeQueue.current.values())
     writeQueue.current.clear()
-
     await supabase.from('habit_logs').upsert(
       batch.map(({ habitId, day, value }) => ({
-        user_id: user.id,
-        habit_id: habitId,
-        year,
-        month,
-        day,
-        completed: value,
+        user_id: user.id, habit_id: habitId, year, month, day, completed: value,
       })),
       { onConflict: 'habit_id,year,month,day' }
     )
-
-    // Only clear pending keys after DB confirms — prevents realtime from overwriting
     batch.forEach(({ habitId, day }) => pendingKeys.current.delete(`${habitId}:${day}`))
   }, [user, year, month])
 
-  // ── Fetch habits ──────────────────────────────────────────────────────────
+  // ── Fetch habits for this specific month ──────────────────────────────────
   const fetchHabits = useCallback(async () => {
     if (!user) return
     const { data } = await supabase
       .from('habits')
-      .select('id, name, order, goal')
+      .select('id, name, order, goal, year, month')
       .eq('user_id', user.id)
+      .eq('year', year)
+      .eq('month', month)
       .order('order', { ascending: true })
     if (data) setHabits(data)
     return data
-  }, [user])
+  }, [user, year, month])
 
-  const seedDefaultHabits = useCallback(async () => {
+  // ── Seed habits for a new month ───────────────────────────────────────────
+  // Priority: copy from previous month → fallback to defaults
+  const seedHabitsForMonth = useCallback(async () => {
     if (!user) return
-    await supabase.from('habits').insert(
-      DEFAULT_HABITS.map((name, i) => ({ user_id: user.id, name, order: i, goal: 0 }))
-    )
-  }, [user])
 
-  // ── Fetch logs — merges with optimistic state, never overwrites pending keys ──
+    // Try to get previous month's habits
+    const prevMonth = month === 0 ? 11 : month - 1
+    const prevYear = month === 0 ? year - 1 : year
+
+    const { data: prevHabits } = await supabase
+      .from('habits')
+      .select('name, order, goal')
+      .eq('user_id', user.id)
+      .eq('year', prevYear)
+      .eq('month', prevMonth)
+      .order('order', { ascending: true })
+
+    const source = prevHabits && prevHabits.length > 0
+      ? prevHabits
+      : DEFAULT_HABITS.map((name, i) => ({ name, order: i, goal: 0 }))
+
+    await supabase.from('habits').insert(
+      source.map((h, i) => ({
+        user_id: user.id,
+        name: h.name,
+        order: h.order ?? i,
+        goal: h.goal ?? 0,
+        year,
+        month,
+      }))
+    )
+  }, [user, year, month])
+
+  // ── Fetch logs ────────────────────────────────────────────────────────────
   const fetchLogs = useCallback(async () => {
     if (!user) return
     const { data } = await supabase
@@ -93,12 +111,10 @@ export function useHabitData(year: number, month: number) {
 
     setLogs(prev => {
       const next: LogMap = {}
-      // Start from DB data
       data.forEach(row => {
         if (!next[row.habit_id]) next[row.habit_id] = {}
         next[row.habit_id][row.day] = row.completed
       })
-      // Re-apply any pending optimistic values — DB data must not win over in-flight writes
       pendingKeys.current.forEach(key => {
         const [habitId, dayStr] = key.split(':')
         const day = parseInt(dayStr)
@@ -116,29 +132,32 @@ export function useHabitData(year: number, month: number) {
   useEffect(() => {
     if (!user) return
     setLoading(true)
+    setHabits([])
+    setLogs({})
     ;(async () => {
       const data = await fetchHabits()
       if (data && data.length === 0) {
-        await seedDefaultHabits()
+        await seedHabitsForMonth()
         await fetchHabits()
       }
       await fetchLogs()
       setLoading(false)
     })()
-  }, [fetchHabits, fetchLogs, seedDefaultHabits, user])
+  }, [fetchHabits, fetchLogs, seedHabitsForMonth, user])
 
-  // ── Realtime: habits ──────────────────────────────────────────────────────
+  // ── Realtime: habits for this month ──────────────────────────────────────
   useEffect(() => {
     if (!user) return
     const channel = supabase
-      .channel(`habits:${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'habits', filter: `user_id=eq.${user.id}` },
-        () => fetchHabits())
+      .channel(`habits:${user.id}:${year}:${month}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'habits', filter: `user_id=eq.${user.id}`,
+      }, () => fetchHabits())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [user, fetchHabits])
+  }, [user, year, month, fetchHabits])
 
-  // ── Realtime: habit_logs — surgical merge, never overwrites pending ────────
+  // ── Realtime: habit_logs ──────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return
     const channel = supabase
@@ -146,14 +165,10 @@ export function useHabitData(year: number, month: number) {
       .on('postgres_changes', {
         event: '*', schema: 'public', table: 'habit_logs', filter: `user_id=eq.${user.id}`,
       }, (payload) => {
-        // Surgical update: only touch the specific row that changed
         const row = (payload.new ?? payload.old) as { habit_id?: string; day?: number; completed?: boolean } | null
         if (!row?.habit_id || row.day == null) return
-
         const key = `${row.habit_id}:${row.day}`
-        // If we have a pending write for this cell, ignore the DB event — our optimistic value wins
         if (pendingKeys.current.has(key)) return
-
         const completed = payload.eventType === 'DELETE' ? false : (row.completed ?? false)
         setLogs(prev => ({
           ...prev,
@@ -164,54 +179,33 @@ export function useHabitData(year: number, month: number) {
     return () => { supabase.removeChannel(channel) }
   }, [user, year, month])
 
-  // ── Toggle — instant optimistic, zero flicker, future days blocked ──────
+  // ── Toggle ────────────────────────────────────────────────────────────────
   const toggle = useCallback((habitId: string, day: number, onFutureDayBlocked?: () => void) => {
     if (!user) return
-
-    // Block future days on the client — compare against today in the current month/year
     const now = new Date()
-    const todayYear = now.getFullYear()
-    const todayMonth = now.getMonth() // 0-indexed
-    const todayDay = now.getDate()
-
     const isFutureDay =
-      year > todayYear ||
-      (year === todayYear && month > todayMonth) ||
-      (year === todayYear && month === todayMonth && day > todayDay)
-
-    if (isFutureDay) {
-      onFutureDayBlocked?.()
-      return
-    }
+      year > now.getFullYear() ||
+      (year === now.getFullYear() && month > now.getMonth()) ||
+      (year === now.getFullYear() && month === now.getMonth() && day > now.getDate())
+    if (isFutureDay) { onFutureDayBlocked?.(); return }
 
     const key = `${habitId}:${day}`
-
     setLogs(prev => {
-      const current = prev[habitId]?.[day] ?? false
-      const next = !current
-
+      const next = !(prev[habitId]?.[day] ?? false)
       pendingKeys.current.add(key)
       writeQueue.current.set(key, { habitId, day, value: next })
-
       if (flushTimer.current) clearTimeout(flushTimer.current)
-      flushTimer.current = setTimeout(() => {
-        flushTimer.current = null
-        flushWrites()
-      }, 300)
-
-      return {
-        ...prev,
-        [habitId]: { ...prev[habitId], [day]: next },
-      }
+      flushTimer.current = setTimeout(() => { flushTimer.current = null; flushWrites() }, 300)
+      return { ...prev, [habitId]: { ...prev[habitId], [day]: next } }
     })
   }, [user, year, month, flushWrites])
 
-  // ── Add habit ─────────────────────────────────────────────────────────────
+  // ── Add habit — scoped to this month ─────────────────────────────────────
   const addHabit = useCallback(async (name: string) => {
     if (!user) return
     const nextOrder = habits.length > 0 ? Math.max(...habits.map(h => h.order)) + 1 : 0
-    await supabase.from('habits').insert({ user_id: user.id, name, order: nextOrder, goal: 0 })
-  }, [user, habits])
+    await supabase.from('habits').insert({ user_id: user.id, name, order: nextOrder, goal: 0, year, month })
+  }, [user, habits, year, month])
 
   const renameHabit = useCallback(async (id: string, name: string) => {
     await supabase.from('habits').update({ name }).eq('id', id)
@@ -227,7 +221,6 @@ export function useHabitData(year: number, month: number) {
     await supabase.from('habits').update({ goal }).eq('id', id)
   }, [])
 
-  // ── Streak calculation ────────────────────────────────────────────────────
   const getStreaks = useCallback((habitId: string, daysInMonth: number, today: number) => {
     let current = 0
     for (let d = today; d >= 1; d--) {

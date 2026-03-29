@@ -89,3 +89,11 @@ create policy "Users can update past/today habit logs"
 create policy "Users can delete their own habit logs"
   on habit_logs for delete
   using (auth.uid() = user_id);
+
+-- ── Month-scoped habits migration ─────────────────────────────────────────
+-- Add year and month columns to habits so each month has its own habit list
+alter table habits add column if not exists year integer not null default 2026;
+alter table habits add column if not exists month integer not null default 2;
+
+-- Update the unique constraint / index if needed
+-- Users can now have the same habit name in different months
