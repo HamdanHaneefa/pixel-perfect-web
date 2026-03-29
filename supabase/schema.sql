@@ -39,3 +39,53 @@ create policy "Users can manage their own habit logs"
   on habit_logs for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Daily todos table
+create table if not exists todos (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  text text not null,
+  completed boolean not null default false,
+  date date not null, -- YYYY-MM-DD
+  created_at timestamptz default now()
+);
+
+alter table todos enable row level security;
+
+create policy "Users can manage their own todos"
+  on todos for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- ── Future-day protection: backend blocks writes for future dates ──────────
+-- Drop the permissive all-operations policy and replace with split policies
+-- that enforce: INSERT/UPDATE only allowed for today or past days.
+
+drop policy if exists "Users can manage their own habit logs" on habit_logs;
+
+-- SELECT: can read all own logs (including future months for display)
+create policy "Users can read their own habit logs"
+  on habit_logs for select
+  using (auth.uid() = user_id);
+
+-- INSERT: only allowed if the date is today or in the past
+create policy "Users can insert past/today habit logs"
+  on habit_logs for insert
+  with check (
+    auth.uid() = user_id
+    and make_date(year, month + 1, day) <= current_date
+  );
+
+-- UPDATE: only allowed if the date is today or in the past
+create policy "Users can update past/today habit logs"
+  on habit_logs for update
+  using (auth.uid() = user_id)
+  with check (
+    auth.uid() = user_id
+    and make_date(year, month + 1, day) <= current_date
+  );
+
+-- DELETE: allowed for own logs (no date restriction needed for deletes)
+create policy "Users can delete their own habit logs"
+  on habit_logs for delete
+  using (auth.uid() = user_id);

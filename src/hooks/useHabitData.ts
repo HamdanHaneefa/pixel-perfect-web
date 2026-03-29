@@ -6,10 +6,10 @@ export interface Habit {
   id: string
   name: string
   order: number
-  goal: number  // 0 = use days-in-month as default
+  goal: number
 }
 
-export type LogMap = Record<string, Record<number, boolean>> // habit_id -> day -> completed
+export type LogMap = Record<string, Record<number, boolean>>
 
 const DEFAULT_HABITS = [
   'Wake up at 05:00 ⏰',
@@ -30,17 +30,21 @@ export function useHabitData(year: number, month: number) {
   const [logs, setLogs] = useState<LogMap>({})
   const [loading, setLoading] = useState(true)
 
-  // Write queue: key = "habitId:day" -> final boolean value
-  // A single shared flush timer batches ALL pending cell changes into one upsert
+  // Pending writes: keys that are in-flight to DB — realtime events for these are ignored
+  const pendingKeys = useRef<Set<string>>(new Set())
   const writeQueue = useRef<Map<string, { habitId: string; day: number; value: boolean }>>(new Map())
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const suppressRealtimeRef = useRef(false)
+  // Stable ref to avoid stale closure in toggle
+  const logsRef = useRef<LogMap>({})
+
+  // Keep logsRef in sync without causing re-renders
+  useEffect(() => { logsRef.current = logs }, [logs])
 
   const flushWrites = useCallback(async () => {
     if (!user || writeQueue.current.size === 0) return
     const batch = Array.from(writeQueue.current.values())
     writeQueue.current.clear()
-    suppressRealtimeRef.current = true
+
     await supabase.from('habit_logs').upsert(
       batch.map(({ habitId, day, value }) => ({
         user_id: user.id,
@@ -52,7 +56,9 @@ export function useHabitData(year: number, month: number) {
       })),
       { onConflict: 'habit_id,year,month,day' }
     )
-    setTimeout(() => { suppressRealtimeRef.current = false }, 1000)
+
+    // Only clear pending keys after DB confirms — prevents realtime from overwriting
+    batch.forEach(({ habitId, day }) => pendingKeys.current.delete(`${habitId}:${day}`))
   }, [user, year, month])
 
   // ── Fetch habits ──────────────────────────────────────────────────────────
@@ -67,7 +73,6 @@ export function useHabitData(year: number, month: number) {
     return data
   }, [user])
 
-  // ── Seed default habits for new users ─────────────────────────────────────
   const seedDefaultHabits = useCallback(async () => {
     if (!user) return
     await supabase.from('habits').insert(
@@ -75,7 +80,7 @@ export function useHabitData(year: number, month: number) {
     )
   }, [user])
 
-  // ── Fetch logs for current month ──────────────────────────────────────────
+  // ── Fetch logs — merges with optimistic state, never overwrites pending keys ──
   const fetchLogs = useCallback(async () => {
     if (!user) return
     const { data } = await supabase
@@ -84,17 +89,30 @@ export function useHabitData(year: number, month: number) {
       .eq('user_id', user.id)
       .eq('year', year)
       .eq('month', month)
-    if (data) {
-      const map: LogMap = {}
+    if (!data) return
+
+    setLogs(prev => {
+      const next: LogMap = {}
+      // Start from DB data
       data.forEach(row => {
-        if (!map[row.habit_id]) map[row.habit_id] = {}
-        map[row.habit_id][row.day] = row.completed
+        if (!next[row.habit_id]) next[row.habit_id] = {}
+        next[row.habit_id][row.day] = row.completed
       })
-      setLogs(map)
-    }
+      // Re-apply any pending optimistic values — DB data must not win over in-flight writes
+      pendingKeys.current.forEach(key => {
+        const [habitId, dayStr] = key.split(':')
+        const day = parseInt(dayStr)
+        const optimistic = prev[habitId]?.[day]
+        if (optimistic !== undefined) {
+          if (!next[habitId]) next[habitId] = {}
+          next[habitId][day] = optimistic
+        }
+      })
+      return next
+    })
   }, [user, year, month])
 
-  // ── Initial load — seed defaults if new user ──────────────────────────────
+  // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return
     setLoading(true)
@@ -109,93 +127,120 @@ export function useHabitData(year: number, month: number) {
     })()
   }, [fetchHabits, fetchLogs, seedDefaultHabits, user])
 
-  // ── Realtime: habits changes ──────────────────────────────────────────────
+  // ── Realtime: habits ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return
     const channel = supabase
       .channel(`habits:${user.id}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'habits',
-        filter: `user_id=eq.${user.id}`,
-      }, () => fetchHabits())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'habits', filter: `user_id=eq.${user.id}` },
+        () => fetchHabits())
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [user, fetchHabits])
 
-  // ── Realtime: habit_logs changes — skip if we triggered it ───────────────
+  // ── Realtime: habit_logs — surgical merge, never overwrites pending ────────
   useEffect(() => {
     if (!user) return
     const channel = supabase
       .channel(`habit_logs:${user.id}:${year}:${month}`)
       .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'habit_logs',
-        filter: `user_id=eq.${user.id}`,
-      }, () => {
-        // If we triggered this change ourselves, skip the re-fetch
-        if (suppressRealtimeRef.current) return
-        fetchLogs()
+        event: '*', schema: 'public', table: 'habit_logs', filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        // Surgical update: only touch the specific row that changed
+        const row = (payload.new ?? payload.old) as { habit_id?: string; day?: number; completed?: boolean } | null
+        if (!row?.habit_id || row.day == null) return
+
+        const key = `${row.habit_id}:${row.day}`
+        // If we have a pending write for this cell, ignore the DB event — our optimistic value wins
+        if (pendingKeys.current.has(key)) return
+
+        const completed = payload.eventType === 'DELETE' ? false : (row.completed ?? false)
+        setLogs(prev => ({
+          ...prev,
+          [row.habit_id!]: { ...prev[row.habit_id!], [row.day!]: completed },
+        }))
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [user, year, month, fetchLogs])
+  }, [user, year, month])
 
-  // ── Toggle a checkbox — instant optimistic update + batched DB flush ─────
-  const toggle = useCallback((habitId: string, day: number) => {
+  // ── Toggle — instant optimistic, zero flicker, future days blocked ──────
+  const toggle = useCallback((habitId: string, day: number, onFutureDayBlocked?: () => void) => {
     if (!user) return
 
-    // Suppress realtime immediately so incoming DB events don't overwrite
-    // the optimistic state while we're still debouncing / flushing
-    suppressRealtimeRef.current = true
+    // Block future days on the client — compare against today in the current month/year
+    const now = new Date()
+    const todayYear = now.getFullYear()
+    const todayMonth = now.getMonth() // 0-indexed
+    const todayDay = now.getDate()
 
-    // Update UI instantly using functional update to always read latest state
+    const isFutureDay =
+      year > todayYear ||
+      (year === todayYear && month > todayMonth) ||
+      (year === todayYear && month === todayMonth && day > todayDay)
+
+    if (isFutureDay) {
+      onFutureDayBlocked?.()
+      return
+    }
+
+    const key = `${habitId}:${day}`
+
     setLogs(prev => {
       const current = prev[habitId]?.[day] ?? false
       const next = !current
 
-      // Queue this write — overwrites any previous pending value for same cell
-      writeQueue.current.set(`${habitId}:${day}`, { habitId, day, value: next })
+      pendingKeys.current.add(key)
+      writeQueue.current.set(key, { habitId, day, value: next })
 
-      // Reset the shared flush timer — all queued writes go out together
       if (flushTimer.current) clearTimeout(flushTimer.current)
       flushTimer.current = setTimeout(() => {
         flushTimer.current = null
         flushWrites()
-      }, 400)
+      }, 300)
 
       return {
         ...prev,
         [habitId]: { ...prev[habitId], [day]: next },
       }
     })
-  }, [user, flushWrites])
+  }, [user, year, month, flushWrites])
 
-  // ── Add a habit ───────────────────────────────────────────────────────────
+  // ── Add habit ─────────────────────────────────────────────────────────────
   const addHabit = useCallback(async (name: string) => {
     if (!user) return
     const nextOrder = habits.length > 0 ? Math.max(...habits.map(h => h.order)) + 1 : 0
     await supabase.from('habits').insert({ user_id: user.id, name, order: nextOrder, goal: 0 })
   }, [user, habits])
 
-  // ── Rename a habit ────────────────────────────────────────────────────────
   const renameHabit = useCallback(async (id: string, name: string) => {
     await supabase.from('habits').update({ name }).eq('id', id)
   }, [])
 
-  // ── Delete a habit ────────────────────────────────────────────────────────
   const deleteHabit = useCallback(async (id: string) => {
     setHabits(prev => prev.filter(h => h.id !== id))
     await supabase.from('habits').delete().eq('id', id)
   }, [])
 
-  // ── Update goal ───────────────────────────────────────────────────────────
   const updateGoal = useCallback(async (id: string, goal: number) => {
     setHabits(prev => prev.map(h => h.id === id ? { ...h, goal } : h))
     await supabase.from('habits').update({ goal }).eq('id', id)
   }, [])
 
-  return { habits, logs, loading, toggle, addHabit, renameHabit, deleteHabit, updateGoal }
+  // ── Streak calculation ────────────────────────────────────────────────────
+  const getStreaks = useCallback((habitId: string, daysInMonth: number, today: number) => {
+    let current = 0
+    for (let d = today; d >= 1; d--) {
+      if (logs[habitId]?.[d]) current++
+      else break
+    }
+    let best = 0, run = 0
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (logs[habitId]?.[d]) { run++; best = Math.max(best, run) }
+      else run = 0
+    }
+    return { current, best }
+  }, [logs])
+
+  return { habits, logs, loading, toggle, addHabit, renameHabit, deleteHabit, updateGoal, getStreaks }
 }
