@@ -966,11 +966,31 @@ function TodosPanel({ todayDate, weekColor }: { todayDate: string; weekColor: st
   const done = todos.filter(t => t.completed);
   const pct = todos.length > 0 ? Math.round((done.length / todos.length) * 100) : 0;
 
+  // Radial progress
+  const r = 28, circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+
   return (
     <div className="space-y-3">
-      {/* Header card */}
-      <div className="bg-card border border-border rounded-xl p-4">
-        <div className="flex items-center justify-between mb-3">
+      {/* Progress card */}
+      <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-5">
+        {/* Radial */}
+        <div className="relative flex-shrink-0" style={{ width: 72, height: 72 }}>
+          <svg width={72} height={72} viewBox="0 0 72 72">
+            <g transform="rotate(-90 36 36)">
+              <circle cx={36} cy={36} r={r} stroke="hsl(var(--border))" strokeWidth={7} fill="none"/>
+              <circle cx={36} cy={36} r={r} stroke={weekColor} strokeWidth={7} strokeLinecap="round"
+                fill="none" strokeDasharray={circ} strokeDashoffset={offset}
+                style={{ transition: 'stroke-dashoffset 0.6s ease' }}/>
+            </g>
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-base font-black text-foreground leading-none">{pct}%</span>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
             <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 text-muted-foreground" stroke="currentColor" strokeWidth="1.7">
               <path d="M5 10l3 3 7-7" strokeLinecap="round" strokeLinejoin="round"/>
@@ -978,13 +998,25 @@ function TodosPanel({ todayDate, weekColor }: { todayDate: string; weekColor: st
             </svg>
             <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Daily Todos</span>
           </div>
-          <span className="text-xs font-bold text-foreground">{done.length}/{todos.length}</span>
+          <div className="flex gap-4">
+            <div>
+              <div className="text-xl font-black text-foreground leading-none">{done.length}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">done</div>
+            </div>
+            <div>
+              <div className="text-xl font-black text-foreground leading-none">{pending.length}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">left</div>
+            </div>
+            <div>
+              <div className="text-xl font-black text-foreground leading-none">{todos.length}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">total</div>
+            </div>
+          </div>
+          {/* Linear bar */}
+          <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: weekColor }} />
+          </div>
         </div>
-        {/* Progress bar */}
-        <div className="w-full h-1.5 bg-border rounded-full overflow-hidden mb-1">
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: weekColor }} />
-        </div>
-        <div className="text-[10px] text-muted-foreground">{pct}% complete</div>
       </div>
 
       {/* Add input */}
