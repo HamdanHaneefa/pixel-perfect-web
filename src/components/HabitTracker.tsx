@@ -543,10 +543,10 @@ export default function HabitTracker() {
         <table className="w-full border-collapse text-xs tabular-nums min-w-[900px]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 border border-border p-1.5 text-center font-black text-white text-sm uppercase tracking-widest min-w-[140px]" rowSpan={3} style={{ backgroundColor: 'hsl(183, 62%, 19%)' }}>My Habits</th>
+              <th className="sticky left-0 z-10 border border-border p-1.5 text-center font-black text-white text-sm tracking-widest min-w-[140px]" rowSpan={3} style={{ backgroundColor: 'hsl(183, 62%, 19%)', letterSpacing: '0.15em' }}>My Habits</th>
               {weekRanges.map((w, wi) => (
-                <th key={w.label} colSpan={w.days.length} className="border border-border p-1.5 text-center font-semibold text-xs uppercase tracking-wider overflow-hidden"
-                  style={{ backgroundColor: WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length], color: '#fff', minWidth: `${w.days.length * 28}px` }}>
+                <th key={w.label} colSpan={w.days.length} className="border border-border p-1.5 text-center font-black text-xs overflow-hidden"
+                  style={{ backgroundColor: WEEK_HSL_COLORS[wi % WEEK_HSL_COLORS.length], color: '#fff', minWidth: `${w.days.length * 28}px`, letterSpacing: '0.12em' }}>
                   {w.label}
                 </th>
               ))}
@@ -719,58 +719,60 @@ export default function HabitTracker() {
 
             <tr><td colSpan={daysInMonth + 3} className="border border-border p-1 bg-card h-2"></td></tr>
 
-            {/* Weekly donut charts row */}
+            {/* Weekly donut row */}
             <tr className="bg-card">
-              <td className="sticky left-0 z-10 border border-border p-2 text-center font-semibold text-white text-[10px] uppercase tracking-wide" style={{ backgroundColor: 'hsl(183, 62%, 19%)' }}>Weekly</td>
-              {weekRanges.map((w, wi) => {
-                const pct = stats.weeklyTotal[wi] > 0 ? Math.round((stats.weeklyCompleted[wi] / stats.weeklyTotal[wi]) * 100) : 0;
-                const r = 28, circ = 2 * Math.PI * r;
-                const offset = circ - (pct / 100) * circ;
-                return (
-                  <td key={wi} colSpan={w.days.length} className="border border-border p-2 text-center">
-                    <div className="flex flex-col items-center gap-1">
-                      <svg width="70" height="70" viewBox="0 0 70 70">
-                        <circle cx="35" cy="35" r={r} fill="none" stroke="hsl(183,62%,88%)" strokeWidth="9"/>
-                        <circle cx="35" cy="35" r={r} fill="none"
-                          stroke="hsl(183,62%,19%)" strokeWidth="9"
-                          strokeLinecap="butt"
-                          strokeDasharray={circ}
-                          strokeDashoffset={offset}
-                          transform="rotate(-90 35 35)"
-                          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-                        />
-                        <text x="35" y="39" textAnchor="middle" fontSize="13" fontWeight="800" fill="hsl(183,62%,19%)">{pct}%</text>
-                      </svg>
-                      <span className="text-[9px] font-semibold uppercase tracking-wide" style={{ color: 'hsl(183,62%,30%)' }}>{w.label}</span>
-                    </div>
-                  </td>
-                );
-              })}
-              <td className="border border-border p-1"></td>
-              <td className="border border-border p-2 text-center">
+              <td className="sticky left-0 z-10 border border-border p-2 text-center" style={{ backgroundColor: 'hsl(183,62%,19%)' }}>
                 {(() => {
                   const pct = stats.totalPossible > 0 ? Math.round((stats.totalCompleted / stats.totalPossible) * 100) : 0;
-                  const r = 22, circ = 2 * Math.PI * r;
+                  const size = 90, cx = 45, cy = 45, r = 34, stroke = 9;
+                  const circ = 2 * Math.PI * r;
                   const offset = circ - (pct / 100) * circ;
                   return (
                     <div className="flex flex-col items-center gap-1">
-                      <svg width="56" height="56" viewBox="0 0 56 56">
-                        <circle cx="28" cy="28" r={r} fill="none" stroke="hsl(183,62%,88%)" strokeWidth="7"/>
-                        <circle cx="28" cy="28" r={r} fill="none"
-                          stroke="hsl(183,62%,19%)" strokeWidth="7"
-                          strokeLinecap="butt"
+                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth={stroke}/>
+                        <circle cx={cx} cy={cy} r={r} fill="none"
+                          stroke="white" strokeWidth={stroke}
+                          strokeLinecap="round"
                           strokeDasharray={circ}
                           strokeDashoffset={offset}
-                          transform="rotate(-90 28 28)"
-                          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                          transform={`rotate(-90 ${cx} ${cy})`}
+                          style={{ transition: 'stroke-dashoffset 0.7s ease' }}
                         />
-                        <text x="28" y="32" textAnchor="middle" fontSize="10" fontWeight="800" fill="hsl(183,62%,19%)">{pct}%</text>
+                        <text x={cx} y={cy + 6} textAnchor="middle" fontSize="15" fontWeight="800" fill="white" fontFamily="inherit">{pct}%</text>
                       </svg>
-                      <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wide">month</span>
+                      <span className="text-[7px] font-semibold uppercase tracking-widest text-white/60">Month</span>
                     </div>
                   );
                 })()}
               </td>
+              {weekRanges.map((w, wi) => {
+                const pct = stats.weeklyTotal[wi] > 0 ? Math.round((stats.weeklyCompleted[wi] / stats.weeklyTotal[wi]) * 100) : 0;
+                const size = 100, cx = 50, cy = 50, r = 38, stroke = 10;
+                const circ = 2 * Math.PI * r;
+                const offset = circ - (pct / 100) * circ;
+                return (
+                  <td key={wi} colSpan={w.days.length} className="border border-border p-2 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                        <circle cx={cx} cy={cy} r={r} fill="none" stroke="hsl(183,62%,88%)" strokeWidth={stroke}/>
+                        <circle cx={cx} cy={cy} r={r} fill="none"
+                          stroke="hsl(183,62%,19%)" strokeWidth={stroke}
+                          strokeLinecap="round"
+                          strokeDasharray={circ}
+                          strokeDashoffset={offset}
+                          transform={`rotate(-90 ${cx} ${cy})`}
+                          style={{ transition: 'stroke-dashoffset 0.7s ease' }}
+                        />
+                        <text x={cx} y={cy + 6} textAnchor="middle" fontSize="16" fontWeight="800" fill="hsl(183,62%,19%)" fontFamily="inherit">{pct}%</text>
+                      </svg>
+                      <span className="text-[8px] font-semibold uppercase tracking-widest" style={{ color: 'hsl(183,62%,35%)' }}>{w.label}</span>
+                    </div>
+                  </td>
+                );
+              })}
+              <td className="border border-border" style={{ backgroundColor: 'hsl(183,62%,97%)' }}></td>
+              <td className="border border-border"></td>
             </tr>
           </tbody>
         </table>
