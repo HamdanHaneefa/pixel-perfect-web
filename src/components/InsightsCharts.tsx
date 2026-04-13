@@ -7,12 +7,12 @@ import {
 import type { Habit, LogMap } from "@/hooks/useHabitData"
 
 const ACCENT = [
-  "hsl(221, 83%, 53%)",
-  "hsl(271, 81%, 56%)",
-  "hsl(0, 84%, 60%)",
-  "hsl(45, 93%, 47%)",
-  "hsl(142, 71%, 45%)",
-  "hsl(300, 64%, 49%)",
+  "hsl(183, 62%, 19%)",
+  "hsl(183, 50%, 28%)",
+  "hsl(183, 42%, 38%)",
+  "hsl(183, 38%, 48%)",
+  "hsl(183, 32%, 58%)",
+  "hsl(183, 55%, 23%)",
 ]
 
 // ── Shared tooltip style ──────────────────────────────────────────────────
@@ -169,7 +169,7 @@ export function WeeklyTrendChart({ weekRanges, weeklyCompleted, weeklyTotal, isD
 export function DisciplineCard({ score, monthName, year, today, isDark }: {
   score: number; monthName: string; year: number; today: number; isDark: boolean
 }) {
-  const scoreColor = score >= 70 ? "#34d399" : score >= 50 ? "#60a5fa" : score >= 30 ? "#fbbf24" : "#f87171"
+  const scoreColor = score >= 70 ? "hsl(183, 62%, 19%)" : score >= 50 ? "hsl(183, 42%, 38%)" : score >= 30 ? "hsl(183, 32%, 58%)" : "hsl(0, 84%, 58%)"
   const scoreLabel = score >= 85 ? "Elite" : score >= 70 ? "Strong" : score >= 50 ? "Building" : score >= 30 ? "Struggling" : "Starting"
   const trackColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)"
 
@@ -271,14 +271,14 @@ export function WeeklySummaryCards({ habits, logs, week, weekLabel }: {
 
   const isGood = s.pct >= 60
   const items = [
-    { label: "Completed", value: s.completed, color: "#34d399" },
-    { label: "Missed", value: s.failed, color: "#f87171" },
-    { label: "Perfect days", value: `${s.perfectDays}/${s.totalDays}`, color: "#60a5fa" },
-    { label: "Wasted days", value: s.wastedDays, color: s.wastedDays > 0 ? "#fb923c" : "#34d399" },
+    { label: "Completed", value: s.completed, color: "hsl(183, 62%, 19%)" },
+    { label: "Missed", value: s.failed, color: "hsl(0, 84%, 58%)" },
+    { label: "Perfect days", value: `${s.perfectDays}/${s.totalDays}`, color: "hsl(183, 50%, 28%)" },
+    { label: "Wasted days", value: s.wastedDays, color: s.wastedDays > 0 ? "hsl(0, 84%, 58%)" : "hsl(183, 62%, 19%)" },
   ]
 
   return (
-    <div className={`border rounded-xl p-4 ${isGood ? "border-emerald-500/20 bg-emerald-950/10" : "border-red-500/20 bg-red-950/10"}`}>
+    <div className={`border rounded-xl p-4 ${isGood ? "border-primary/20 bg-primary/5" : "border-destructive/20 bg-destructive/5"}`}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <svg viewBox="0 0 20 20" fill="none" className="w-4 h-4 text-muted-foreground" stroke="currentColor" strokeWidth="1.7">
@@ -286,7 +286,7 @@ export function WeeklySummaryCards({ habits, logs, week, weekLabel }: {
           </svg>
           <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">{weekLabel}</span>
         </div>
-        <span className="text-sm font-black" style={{ color: isGood ? "#34d399" : "#f87171" }}>{s.pct}%</span>
+        <span className="text-sm font-black" style={{ color: isGood ? "hsl(183, 62%, 19%)" : "hsl(0, 84%, 58%)" }}>{s.pct}%</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
         {items.map(item => (
@@ -297,7 +297,7 @@ export function WeeklySummaryCards({ habits, logs, week, weekLabel }: {
         ))}
       </div>
       <div className="mt-3 text-[11px] font-medium text-center rounded-lg py-1.5 px-2"
-        style={{ backgroundColor: isGood ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)", color: isGood ? "#34d399" : "#f87171" }}>
+        style={{ backgroundColor: isGood ? "hsl(183, 62%, 19%, 0.08)" : "rgba(248,113,113,0.08)", color: isGood ? "hsl(183, 62%, 19%)" : "hsl(0, 84%, 58%)" }}>
         {s.pct >= 90 && "Exceptional week. You're building real discipline."}
         {s.pct >= 70 && s.pct < 90 && "Strong week. Keep the momentum going."}
         {s.pct >= 50 && s.pct < 70 && "Decent effort. Push harder next week."}

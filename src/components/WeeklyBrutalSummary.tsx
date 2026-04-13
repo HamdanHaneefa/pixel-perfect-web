@@ -36,7 +36,7 @@ export default function WeeklyBrutalSummary({ habits, logs, weekRanges, activeWe
   const isGood = summary.pct >= 70
 
   return (
-    <div className={`rounded-xl border p-4 ${isGood ? "border-emerald-500/30 bg-emerald-950/20" : "border-red-500/30 bg-red-950/20"}`}>
+    <div className={`rounded-xl border p-4 ${isGood ? "border-primary/30 bg-primary/5" : "border-destructive/30 bg-destructive/5"}`}>
       <div className="flex items-center gap-2 mb-3">
         <span className="text-base">{isGood ? "🏆" : "💀"}</span>
         <span className="text-xs font-bold uppercase tracking-widest text-foreground">
@@ -45,23 +45,23 @@ export default function WeeklyBrutalSummary({ habits, logs, weekRanges, activeWe
       </div>
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div className="bg-card/60 rounded-lg p-2.5 text-center">
-          <div className="text-xl font-black text-emerald-400">{summary.completed}</div>
+          <div className="text-xl font-black text-primary">{summary.completed}</div>
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">habits done</div>
         </div>
         <div className="bg-card/60 rounded-lg p-2.5 text-center">
-          <div className="text-xl font-black text-red-400">{summary.failed}</div>
+          <div className="text-xl font-black text-destructive">{summary.failed}</div>
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">times failed</div>
         </div>
         <div className="bg-card/60 rounded-lg p-2.5 text-center">
-          <div className="text-xl font-black text-blue-400">{summary.consistentDays}/{summary.totalDays}</div>
+          <div className="text-xl font-black text-primary/70">{summary.consistentDays}/{summary.totalDays}</div>
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">consistent days</div>
         </div>
         <div className="bg-card/60 rounded-lg p-2.5 text-center">
-          <div className={`text-xl font-black ${summary.wastedDays > 0 ? "text-orange-400" : "text-emerald-400"}`}>{summary.wastedDays}</div>
+          <div className={`text-xl font-black ${summary.wastedDays > 0 ? "text-destructive/70" : "text-primary"}`}>{summary.wastedDays}</div>
           <div className="text-[10px] text-muted-foreground uppercase tracking-wide">days wasted</div>
         </div>
       </div>
-      <div className={`mt-3 text-xs font-semibold text-center rounded-lg py-2 px-3 ${isGood ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
+      <div className={`mt-3 text-xs font-semibold text-center rounded-lg py-2 px-3 ${isGood ? "bg-primary/10 text-primary" : "bg-destructive/10 text-destructive"}`}>
         {summary.pct >= 90 && "You're absolutely crushing it. Keep going."}
         {summary.pct >= 70 && summary.pct < 90 && "Solid week. Push harder next one."}
         {summary.pct >= 50 && summary.pct < 70 && `You completed ${summary.completed} / ${summary.totalPossible} habits. More discipline needed.`}

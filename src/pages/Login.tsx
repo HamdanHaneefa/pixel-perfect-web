@@ -12,51 +12,52 @@ export default function Login() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="w-5 h-5 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
 
       {/* Logo / Brand */}
       <div className="mb-8 text-center">
-        <span className="text-3xl font-black text-white tracking-tight flex items-center justify-center gap-2">
+        <span className="text-3xl font-black tracking-tight flex items-center justify-center gap-2" style={{ color: '#0D4F52' }}>
           trackly
-          <span className="inline-flex items-center justify-center w-7 h-7 bg-red-600 rounded text-white text-sm font-black">T</span>
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded text-white text-sm font-black" style={{ backgroundColor: '#0D4F52' }}>T</span>
         </span>
-        <p className="text-gray-500 text-xs tracking-widest uppercase mt-1">progress.</p>
+        <p className="text-xs tracking-widest uppercase mt-1" style={{ color: '#0D4F52', opacity: 0.5 }}>progress.</p>
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl p-8 flex flex-col gap-6">
+      <div className="w-full max-w-sm bg-white border rounded-2xl p-8 flex flex-col gap-6 shadow-sm" style={{ borderColor: '#0D4F5230' }}>
 
         <div className="text-center">
-          <h1 className="text-xl font-bold text-white mb-1">Sign in to Trackly</h1>
-          <p className="text-gray-400 text-sm leading-relaxed">
+          <h1 className="text-xl font-bold mb-1" style={{ color: '#0D4F52' }}>Sign in to Trackly</h1>
+          <p className="text-sm leading-relaxed" style={{ color: '#0D4F5299' }}>
             Use the same email you used at checkout
           </p>
         </div>
 
         <button
           onClick={signInWithGoogle}
-          className="flex items-center justify-center gap-3 w-full bg-white text-gray-900 border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold hover:bg-gray-50 active:scale-[0.98] transition-all shadow-sm"
+          className="flex items-center justify-center gap-3 w-full bg-white border rounded-xl px-4 py-3 text-sm font-semibold hover:bg-secondary active:scale-[0.98] transition-all shadow-sm"
+          style={{ borderColor: '#0D4F5240', color: '#0D4F52' }}
         >
           <GoogleIcon />
           Continue with Google
         </button>
 
-        <div className="bg-amber-950/40 border border-amber-800/40 rounded-xl px-4 py-3">
-          <p className="text-amber-300 text-xs leading-relaxed text-center">
+        <div className="rounded-xl px-4 py-3" style={{ backgroundColor: '#0D4F520D', border: '1px solid #0D4F5220' }}>
+          <p className="text-xs leading-relaxed text-center" style={{ color: '#0D4F52CC' }}>
             Sign in with the Google account that matches the email you used at checkout.
           </p>
         </div>
 
       </div>
 
-      <p className="text-gray-700 text-xs mt-8">Trackly · {new Date().getFullYear()}</p>
+      <p className="text-xs mt-8" style={{ color: '#0D4F5250' }}>Trackly · {new Date().getFullYear()}</p>
     </div>
   )
 }

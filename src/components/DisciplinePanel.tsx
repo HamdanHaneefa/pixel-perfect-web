@@ -35,11 +35,11 @@ function calcDisciplineScore(
 }
 
 function getScoreLabel(score: number) {
-  if (score >= 85) return { label: "Elite", color: "text-emerald-400" }
-  if (score >= 70) return { label: "Strong", color: "text-blue-400" }
-  if (score >= 50) return { label: "Building", color: "text-yellow-400" }
-  if (score >= 30) return { label: "Struggling", color: "text-orange-400" }
-  return { label: "Starting", color: "text-red-400" }
+  if (score >= 85) return { label: "Elite", color: "text-primary" }
+  if (score >= 70) return { label: "Strong", color: "text-primary/80" }
+  if (score >= 50) return { label: "Building", color: "text-primary/60" }
+  if (score >= 30) return { label: "Struggling", color: "text-destructive/70" }
+  return { label: "Starting", color: "text-destructive" }
 }
 
 export default function DisciplinePanel({ habits, logs, daysInMonth, today, monthName, year }: Props) {

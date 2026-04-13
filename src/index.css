@@ -6,83 +6,48 @@
 
 @layer base {
   :root {
-    /* ── Light theme: warm cream-white, not harsh pure white ── */
-    --background:    36 33% 97%;       /* warm cream #F9F7F4 */
-    --foreground:    220 25% 12%;      /* near-black with blue tint */
-    --card:          0 0% 100%;        /* pure white cards */
-    --card-foreground: 220 25% 12%;
+    /* ── Theme: white background + deep teal primary (#0D4F52) ── */
+    --background:    0 0% 100%;        /* pure white */
+    --foreground:    183 62% 8%;       /* very dark teal for text */
+    --card:          0 0% 100%;        /* white cards */
+    --card-foreground: 183 62% 8%;
     --popover:       0 0% 100%;
-    --popover-foreground: 220 25% 12%;
-    --primary:       221 83% 53%;
+    --popover-foreground: 183 62% 8%;
+    --primary:       183 62% 19%;      /* deep teal #0D4F52 */
     --primary-foreground: 0 0% 100%;
-    --secondary:     36 20% 94%;       /* warm light gray */
-    --secondary-foreground: 220 25% 20%;
-    --muted:         36 20% 94%;
-    --muted-foreground: 220 12% 50%;
-    --accent:        36 20% 92%;
-    --accent-foreground: 220 25% 12%;
+    --secondary:     183 20% 94%;      /* very light teal tint */
+    --secondary-foreground: 183 62% 15%;
+    --muted:         183 15% 94%;
+    --muted-foreground: 183 15% 45%;
+    --accent:        183 30% 90%;      /* light teal accent */
+    --accent-foreground: 183 62% 15%;
     --destructive:   0 84% 58%;
     --destructive-foreground: 0 0% 100%;
-    --border:        36 15% 88%;       /* warm border, not cold gray */
-    --input:         36 15% 88%;
-    --ring:          221 83% 53%;
+    --border:        183 20% 88%;      /* soft teal-tinted border */
+    --input:         183 20% 88%;
+    --ring:          183 62% 19%;
     --radius:        0.5rem;
 
-    /* Week colors — vivid but balanced */
-    --week-1: 221 83% 53%;
-    --week-2: 271 81% 56%;
-    --week-3: 0 84% 60%;
-    --week-4: 38 95% 50%;
-    --week-5: 142 71% 40%;
-    --week-monthly: 300 64% 49%;
+    /* Week colors — all same deep teal */
+    --week-1: 183 62% 19%;
+    --week-2: 183 62% 19%;
+    --week-3: 183 62% 19%;
+    --week-4: 183 62% 19%;
+    --week-5: 183 62% 19%;
+    --week-monthly: 183 62% 19%;
 
-    /* Tracker header */
-    --tracker-header-bg: 220 30% 16%;
+    /* Tracker header — deep teal */
+    --tracker-header-bg: 183 62% 14%;
     --tracker-header-fg: 0 0% 100%;
 
-    --sidebar-background: 36 33% 97%;
-    --sidebar-foreground: 220 25% 30%;
-    --sidebar-primary: 221 83% 53%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 183 30% 25%;
+    --sidebar-primary: 183 62% 19%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 36 20% 92%;
-    --sidebar-accent-foreground: 220 25% 12%;
-    --sidebar-border: 36 15% 88%;
-    --sidebar-ring: 221 83% 53%;
-  }
-
-  .dark {
-    /* ── Dark theme: deep navy-slate, not flat black ── */
-    --background:    224 30% 9%;       /* deep navy #0E1117 */
-    --foreground:    210 25% 93%;      /* soft white */
-    --card:          224 28% 13%;      /* slightly lighter navy */
-    --card-foreground: 210 25% 93%;
-    --popover:       224 28% 13%;
-    --popover-foreground: 210 25% 93%;
-    --primary:       221 83% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary:     224 25% 18%;
-    --secondary-foreground: 210 20% 80%;
-    --muted:         224 25% 18%;
-    --muted-foreground: 215 15% 52%;
-    --accent:        224 25% 20%;
-    --accent-foreground: 210 25% 93%;
-    --destructive:   0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border:        224 22% 20%;      /* subtle border */
-    --input:         224 22% 20%;
-    --ring:          221 83% 60%;
-
-    --tracker-header-bg: 224 35% 12%;
-    --tracker-header-fg: 210 25% 93%;
-
-    --sidebar-background: 224 30% 11%;
-    --sidebar-foreground: 210 20% 80%;
-    --sidebar-primary: 221 83% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224 25% 18%;
-    --sidebar-accent-foreground: 210 25% 93%;
-    --sidebar-border: 224 22% 20%;
-    --sidebar-ring: 221 83% 60%;
+    --sidebar-accent: 183 30% 90%;
+    --sidebar-accent-foreground: 183 62% 15%;
+    --sidebar-border: 183 20% 88%;
+    --sidebar-ring: 183 62% 19%;
   }
 }
 

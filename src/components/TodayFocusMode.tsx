@@ -98,7 +98,7 @@ export default function TodayFocusMode({ habits, logs, today, toggle, getStreaks
               <div
                 key={habit.id}
                 className={`flex items-center gap-3 px-4 py-3 transition-colors
-                  ${done ? 'bg-emerald-950/10' : lostStreak ? 'bg-red-950/5' : 'hover:bg-secondary/30'}`}
+                  ${done ? 'bg-primary/5' : lostStreak ? 'bg-destructive/5' : 'hover:bg-secondary/30'}`}
               >
                 {/* Checkbox only toggles */}
                 <button
@@ -137,12 +137,12 @@ export default function TodayFocusMode({ habits, logs, today, toggle, getStreaks
                   )}
                   {best > 0 && (
                     <div className="flex items-center gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary/60" />
                       <span className="text-[10px] text-muted-foreground">best {best}</span>
                     </div>
                   )}
                   {lostStreak && (
-                    <span className="text-[10px] text-red-400 font-medium">lost {best}d</span>
+                    <span className="text-[10px] text-destructive font-medium">lost {best}d</span>
                   )}
                 </div>
               </div>
